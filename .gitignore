@@ -1,0 +1,7 @@
+backend/bin/
+frontend/bin/
+common/bin/
+logs/
+*.exe
+*.test
+.vscode/
