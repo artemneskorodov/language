@@ -19,6 +19,8 @@ enum language_error_t {
     LANGUAGE_PARSING_FLAGS_ERROR = 12,
     LANGUAGE_UNKNOWN_FLAG = 13,
     LANGUAGE_DUMP_FILE_ERROR = 14,
+    LANGUAGE_READING_TREE_ERROR = 15,
+    LANGUAGE_UNKNOWN_CODE_TREE_TYPE = 16,
     //TODO
 };
 
@@ -146,7 +148,7 @@ language_error_t name_table_add(language_t *language, const char *name, size_t l
 language_error_t name_table_find(language_t *language, const char *name, size_t length, size_t *index);
 language_error_t name_table_dtor(language_t *language);
 language_error_t get_identifier(language_t *language, language_node_t *node, identifier_t **identifier);
-language_error_t name_table_set_defined(language_t *language, language_node_t *node, identifier_type_t type);
+language_error_t name_table_set_defined(language_t *language, size_t index, identifier_type_t type);
 //TODO
 language_error_t assemble_two_args(language_t *language, language_node_t *node);
 language_error_t assemble_one_arg(language_t *language, language_node_t *node);

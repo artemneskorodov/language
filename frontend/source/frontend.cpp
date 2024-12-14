@@ -199,7 +199,7 @@ language_error_t get_new_function(language_t *language, language_node_t **output
     }
     (*output)->right = token_position(language);
     move_next_token(language);
-    _RETURN_IF_ERROR(name_table_set_defined(language, (*output)->right, IDENTIFIER_FUNCTION));
+    _RETURN_IF_ERROR(name_table_set_defined(language, (*output)->right->value.identifier, IDENTIFIER_FUNCTION));
 
     if(!is_on_operation(language, OPERATION_OPEN_BRACKET)) {
         return syntax_error(language, "It is expected to see '(' after identifier when initializing function.\n");
@@ -321,7 +321,7 @@ language_error_t get_new_variable(language_t *language, language_node_t **output
     }
     language_node_t *identifier = token_position(language);
     move_next_token(language);
-    _RETURN_IF_ERROR(name_table_set_defined(language, identifier, IDENTIFIER_VARIABLE));
+    _RETURN_IF_ERROR(name_table_set_defined(language, identifier->value.identifier, IDENTIFIER_VARIABLE));
     if(is_on_operation(language, OPERATION_ASIGNMENT)) {
         (*output)->right = token_position(language);
         move_next_token(language);

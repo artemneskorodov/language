@@ -49,7 +49,130 @@ language_error_t nodes_storage_dtor(language_t *language) {
     return LANGUAGE_SUCCESS;
 }
 
-language_error_t read_tree(language_t *language);
+language_error_t read_tree(language_t *language) {
+    FILE *input = fopen(language->input_file, "rb");
+    size_t size = file_size(input);
+    char *tree_string = (char *)calloc(size + 1, sizeof(char));
+    char *position = tree_string;
+    if(fread(tree_string, sizeof(char), size, input) != size) {
+        print_error("Error while reading tree file.\n");
+        return LANGUAGE_READING_TREE_ERROR;
+    }
+    flose(input);
+
+    int read_symbols = 0;
+    size_t name_table_size = 0;
+    if(sscanf(position, "%llu%n", &name_table_size, &read_symbols) != 1) {
+        print_error("Undefined code tree structure, I supposed it to start with size of name table.\n");
+        return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
+    }
+    position += read_symbols;
+    while(isspace(*position)) {
+        position++;
+    }
+    _RETURN_IF_ERROR(name_table_ctor(language, name_table_size));
+    for(size_t elem = 0; elem < name_table_size; elem++) {
+        size_t length = 0;
+        if(sscanf("{%llu|%n", &length, &read_symbols));
+        position += read_symbols;
+        while(isspace(*position)) {
+            position++;
+        }
+        if(*positino != '"') {
+            print_error("Unknown code tree structure, I supposed that name table element would look like: \"{LENGTH|\"NAME\"|TYPE}\"");
+            return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
+        }
+        position++;
+        _RETURN_IF_ERROR(name_table_add(language, position, length, NULL));
+        position += length;
+        if(*positino != '"') {
+            print_error("Unknown code tree structure, I supposed that name table element would look like: \"{LENGTH|\"NAME\"|TYPE}\"");
+            return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
+        }
+        positino++;
+        if(*position != '|') {
+            print_error("Unknown code tree structure, I supposed that name table element would look like: \"{LENGTH|\"NAME\"|TYPE}\"");
+            return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
+        }
+        position++;
+        identifier_type_t type = (identifier_type_t)0;
+        if(scanf("%d}%n", (int *)&type, &read_symbols) != 1) {
+            print_error("Unknown code tree structure, I supposed that name table element would look like: \"{LENGTH|\"NAME\"|TYPE}\"");
+            return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
+        }
+        _RETURN_IF_ERROR(name_table_set_defined(language, elem, type));
+        while(isspace(*position)) {
+            positino++;
+        }
+    }
+
+    while(isspace(*position)) {
+        positino++;
+    }
+    size_t nodes_number = 0;
+    if(sscanf(position, "%llu%n", &nodes_number, &read_symbols) != 1) {
+        print_error("I expected to see nodes number after name table.\n");
+        return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
+    }
+    positino += read_symbols;
+    _RETURN_IF_ERORR(read_subtree(language, &language->root, &position));
+    free(tree_string);
+    return LANGUAGE_SUCCESS;
+}
+
+language_error_t read_subtree(language_t *language, language_node_t **output, char **position) {
+    if(**positino != '{') {
+        print_error("Nodes are expected to be written in format: { TYPE VALUE LEFT RIGHT} (LEFT and RIGHT are set to - if child is empty)");
+        return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
+    }
+    (*position)++;
+    while(isspace(**position)) {
+        (*position)++;
+    }
+    int read_symbols = 0;
+    node_type_t type = (node_type_t)0;
+    if(sscanf(*position, "%d%n", &type, &read_symbols) != 1) {
+        print_error("Nodes are expected to be written in format: { TYPE VALUE LEFT RIGHT} (LEFT and RIGHT are set to - if child is empty)");
+        return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
+    }
+    *positino += read_symbols;
+    while(isspace(**position)) {
+        (*position)++;
+    }
+    value_t value = 0;
+    switch(type) {
+        case NODE_TYPE_IDENTIFIER: {
+            if(sscanf(*position, "%llu%n", &value.identifier, &read_symbols) != 1) {
+                print_error("Nodes are expected to be written in format: { TYPE VALUE LEFT RIGHT} (LEFT and RIGHT are set to - if child is empty)");
+                return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
+            }
+            break;
+        }
+        case NODE_TYPE_NUMBER: {
+            if(sscanf(*position, "%lg%n", &value.number, &read_symbols) != 1) {
+                print_error("Nodes are expected to be written in format: { TYPE VALUE LEFT RIGHT} (LEFT and RIGHT are set to - if child is empty)");
+                return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
+            }
+            break;
+        }
+        case NODE_TYPE_OPERATION: {
+            if(sscanf(*position, "%d%n", &value.opcode, &read_symbols) != 1) {
+                print_error("Nodes are expected to be written in format: { TYPE VALUE LEFT RIGHT} (LEFT and RIGHT are set to - if child is empty)");
+                return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
+            }
+            break;
+        }
+        default: {
+            print_error("Read unknown node type.\n");
+            return LANGUAGE_UNKNOWN_NODE_TYPE;
+        }
+        (*position) += read_symbols;
+    }
+    (*position) += read_symbols;
+
+    _RETURN_IF_ERROR(nodes_storage_add(language, type, value, NULL, 0));
+
+}
 
 language_error_t write_tree(language_t *language) {
     FILE *output = fopen(language->output_file, "wb");
@@ -59,7 +182,7 @@ language_error_t write_tree(language_t *language) {
     }
     for(size_t elem = 0; elem < language->name_table.size; elem++) {
         identifier_t *identifier = language->name_table.identifiers + elem;
-        fprintf(output, "{ name = %.*s | name_length = %llu | type = %d }\r\n", identifier->length, identifier->name, identifier->length, identifier->type);
+        fprintf(output, "{%llu|\"%.*s\"|%d}\r\n", identifier->length, (int)identifier->length, identifier->name, identifier->type);
     }
     fprintf(output, "\r\n");
     _RETURN_IF_ERROR(write_subtree(language, language->root, 0, output));
@@ -68,7 +191,7 @@ language_error_t write_tree(language_t *language) {
 }
 
 language_error_t write_subtree(language_t *language, language_node_t *node, size_t level, FILE *output) {
-    fprintf(output, "%*s{ type = %d | value = ", level * 8, "", node->type);
+    fprintf(output, "{ %d ", node->type);
     switch(node->type) {
         case NODE_TYPE_IDENTIFIER: {
             fprintf(output, "%llu ", node->value.identifier);
@@ -88,19 +211,19 @@ language_error_t write_subtree(language_t *language, language_node_t *node, size
         }
     }
     if(node->left != NULL) {
-        fprintf(output, "\r\n");
-        _RETURN_IF_ERROR(write_subtree(language, node->left, level + 1, output));
-    }
-    if(node->right != NULL) {
-        fprintf(output, "\r\n");
-        _RETURN_IF_ERROR(write_subtree(language, node->right, level + 1, output));
-    }
-    if(node->right == NULL && node->left == NULL) {
-        fprintf(output, "}");
+        _RETURN_IF_ERROR(write_subtree(language, node->left, level + 1, output)); //FIXME check if level needed
     }
     else {
-        fprintf(output, "\r\n%*s}", level * 8, "");
+        fprintf(output, "- ");
     }
+    if(node->right != NULL) {
+        _RETURN_IF_ERROR(write_subtree(language, node->right, level + 1, output));
+    }
+    else {
+        fprintf(output, "- ");
+    }
+
+    fprintf(output, "} ");
     return LANGUAGE_SUCCESS;
 }
 
@@ -120,7 +243,9 @@ language_error_t name_table_add(language_t *language, const char *name, size_t l
     //TODO add checking size
     language->name_table.identifiers[language->name_table.size].name = name;
     language->name_table.identifiers[language->name_table.size].length = length;
-    *index = language->name_table.size;
+    if(index != NULL) {
+        *index = language->name_table.size;
+    }
     language->name_table.size++;
     return LANGUAGE_SUCCESS;
 }
@@ -155,7 +280,7 @@ language_error_t get_identifier(language_t *language, language_node_t *node, ide
     return LANGUAGE_SUCCESS;
 }
 
-language_error_t name_table_set_defined(language_t *language, language_node_t *node, identifier_type_t type) {
+language_error_t name_table_set_defined(language_t *language, size_t index, identifier_type_t type) {
     if(node->type != NODE_TYPE_IDENTIFIER) {
         print_error("Identifier getting function call for non identifier node.\n");
         return LANGUAGE_INVALID_NODE_TYPE;

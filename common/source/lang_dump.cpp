@@ -43,7 +43,7 @@ language_error_t dump_tree(language_t *language, const char *format, ...) {
     fprintf(dot_file, "}\n");
     fclose(dot_file);
     char command[256] = {};
-    sprintf(command, "dot %s -Tsvg -o logs/img/%s%04llx.svg", dot_filename, language->dump_info.filename, language->dump_info.dumps_number);
+    sprintf(command, "dot %.*s -Tsvg -o logs/img/%s%04llx.svg", 255, dot_filename, language->dump_info.filename, language->dump_info.dumps_number);
     system(command);
     fprintf(language->dump_info.general_dump, "<h1>");
     va_list args;
