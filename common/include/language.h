@@ -88,6 +88,8 @@ struct identifier_t {
     identifier_type_t type;
     size_t parameters_number;
     bool is_defined;
+    size_t memory_addr;
+    size_t scope;
 };
 
 struct name_table_t {
@@ -103,21 +105,22 @@ struct nodes_storage_t {
 };
 
 struct frontend_info_t {
-    size_t input_size;
-    char *input;
-    char *input_position;
     language_node_t *position;
     size_t current_line;
+    size_t scope;
 };
 
 struct backend_info_t {
-    //TODO
+    size_t used_memory;
+    size_t used_labels;
+    size_t used_locals;
 };
 
 struct dump_info_t {
     FILE *general_dump;
     size_t dumps_number;
     const char *filename;
+    size_t current_scope;
 };
 
 struct language_t {
@@ -125,6 +128,10 @@ struct language_t {
     name_table_t name_table;
     nodes_storage_t nodes;
     language_node_t *root;
+
+    char *input;
+    size_t input_size;
+    char *input_position;
 
     frontend_info_t frontend_info;
     backend_info_t backend_info;
@@ -138,7 +145,7 @@ struct language_t {
 #define IDENT(_value)  (value_t){.identifier = (_value)}
 
 language_error_t nodes_storage_ctor(language_t *language, size_t capacity);
-language_error_t nodes_storage_add(language_t *language, node_type_t type, value_t value, const char *name, size_t length);
+language_error_t nodes_storage_add(language_t *language, node_type_t type, value_t value, const char *name, size_t length, language_node_t **output);
 language_error_t nodes_storage_dtor(language_t *language);
 language_error_t parse_flags(language_t *language, int argc, const char *argv[]);
 language_error_t read_tree(language_t *language);
@@ -148,16 +155,26 @@ language_error_t name_table_add(language_t *language, const char *name, size_t l
 language_error_t name_table_find(language_t *language, const char *name, size_t length, size_t *index);
 language_error_t name_table_dtor(language_t *language);
 language_error_t get_identifier(language_t *language, language_node_t *node, identifier_t **identifier);
-language_error_t name_table_set_defined(language_t *language, size_t index, identifier_type_t type);
+language_error_t name_table_set_defined(language_t *language, size_t index, identifier_type_t type, size_t scope);
+language_error_t compile_subtree(language_t *language, language_node_t *root, FILE *output);
 //TODO
-language_error_t assemble_two_args(language_t *language, language_node_t *node);
-language_error_t assemble_one_arg(language_t *language, language_node_t *node);
+language_error_t assemble_two_args(language_t *language, language_node_t *node, FILE *output);
+language_error_t assemble_one_arg(language_t *language, language_node_t *node, FILE *output);
+language_error_t assemble_comparison(language_t *language, language_node_t *node, FILE *output);
+language_error_t assemble_statements_line(language_t *language, language_node_t *node, FILE *output);
+language_error_t assemble_if(language_t *language, language_node_t *node, FILE *output);
+language_error_t assemble_while(language_t *language, language_node_t *node, FILE *output);
+language_error_t assemble_return(language_t *language, language_node_t *node, FILE *output);
+language_error_t assemble_params_line(language_t *language, language_node_t *node, FILE *output);
+language_error_t assemble_new_var(language_t *language, language_node_t *node, FILE *output);
+language_error_t assemble_new_func(language_t *language, language_node_t *node, FILE *output);
+language_error_t assemble_asignment(language_t *language, language_node_t *node, FILE *output);;
 
 struct keyword_t {
     const char *name;
     size_t length;
     operation_t code;
-    language_error_t (*assemble)(language_t *language, language_node_t *node);
+    language_error_t (*assemble)(language_t *, language_node_t *, FILE *);
     const char *assembler_command;
     bool is_expression_element;
 };
@@ -173,20 +190,20 @@ static const keyword_t KeyWords[] = {
     {STR_LEN("cos"), OPERATION_COS, assemble_one_arg, "cos", true},
     {STR_LEN("sin"), OPERATION_SIN, assemble_one_arg, "sin", true},
     {STR_LEN("^"), OPERATION_POW, assemble_two_args, "pow", false},
-    {STR_LEN(">"), OPERATION_BIGGER, NULL, NULL, false},
-    {STR_LEN("<"), OPERATION_SMALLER, NULL, NULL, false},
-    {STR_LEN("="), OPERATION_ASIGNMENT, NULL, NULL, false},
+    {STR_LEN(">"), OPERATION_BIGGER, assemble_comparison, "ja", false},
+    {STR_LEN("<"), OPERATION_SMALLER, assemble_comparison, "jb", false},
+    {STR_LEN("="), OPERATION_ASIGNMENT, assemble_asignment, NULL, false},
     {STR_LEN("("), OPERATION_OPEN_BRACKET, NULL, NULL, false},
     {STR_LEN(")"), OPERATION_CLOSE_BRACKET, NULL, NULL, false},
     {STR_LEN("{"), OPERATION_BODY_START, NULL, NULL, false},
     {STR_LEN("}"), OPERATION_BODY_END, NULL, NULL, false},
-    {STR_LEN(";"), OPERATION_STATEMENT, NULL, NULL, false},
-    {STR_LEN("reskni"), OPERATION_IF, NULL, NULL, false},
-    {STR_LEN("dohuya"), OPERATION_WHILE, NULL, NULL, false},
-    {STR_LEN("otday"), OPERATION_RETURN, NULL, NULL, false},
-    {STR_LEN(","), OPERATION_PARAM_LINKER, NULL, NULL, false},
-    {STR_LEN("blyadskiy"), OPERATION_NEW_VAR, NULL, NULL, false},
-    {STR_LEN("ebal"), OPERATION_NEW_FUNC, NULL, NULL, false},
+    {STR_LEN(";"), OPERATION_STATEMENT, assemble_statements_line, NULL, false},
+    {STR_LEN("reskni"), OPERATION_IF, assemble_if, NULL, false},
+    {STR_LEN("dohuya"), OPERATION_WHILE, assemble_while, NULL, false},
+    {STR_LEN("otday"), OPERATION_RETURN, assemble_return, NULL, false},
+    {STR_LEN(","), OPERATION_PARAM_LINKER, assemble_params_line, NULL, false},
+    {STR_LEN("blyadskiy"), OPERATION_NEW_VAR, assemble_new_var, NULL, false},
+    {STR_LEN("ebal"), OPERATION_NEW_FUNC, assemble_new_func, NULL, false},
     //TODO
     {NULL, 0, OPERATION_PROGRAM_END, NULL, NULL, false},
 };

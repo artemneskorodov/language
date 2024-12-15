@@ -39,7 +39,7 @@ language_error_t get_new_variable(language_t *language, language_node_t **output
 language_error_t get_while(language_t *language, language_node_t **output);
 language_error_t get_if(language_t *language, language_node_t **output);
 language_error_t get_body(language_t *language, language_node_t **output);
-language_error_t get_new_function_params (language_t *language, language_node_t **output);
+language_error_t get_new_function_params (language_t *language, language_node_t **output, size_t *paramers_number);
 language_error_t get_new_function(language_t *language, language_node_t **output);
 language_error_t get_statement(language_t *language, language_node_t **output);
 language_error_t get_global_statement(language_t *language, language_node_t **output);
@@ -48,31 +48,32 @@ language_error_t get_comparison(language_t *language, language_node_t **output);
 
 language_error_t frontend_ctor(language_t *language, int argc, const char *argv[]) {
     _RETURN_IF_ERROR(parse_flags(language, argc, argv));
-    _RETURN_IF_ERROR(dump_ctor(language, "aaa"));
+    _RETURN_IF_ERROR(dump_ctor(language, "frontend"));
     FILE *source = fopen(language->input_file, "rb");
     if(source == NULL) {
         print_error("Error while opening source code file '%s'. May be the file does not exist.\n");
         return LANGUAGE_OPENING_FILE_ERROR;
     }
-    language->frontend_info.input_size = file_size(source);
-    language->frontend_info.input = (char *)calloc(language->frontend_info.input_size + 1, sizeof(char));
-    if(language->frontend_info.input == NULL) {
+    language->input_size = file_size(source);
+    language->input = (char *)calloc(language->input_size + 1, sizeof(char));
+    if(language->input == NULL) {
         fclose(source);
         print_error("Error while allocating memory for input.\n");
         return LANGUAGE_MEMORY_ERROR;
     }
-    if(fread(language->frontend_info.input, sizeof(char), language->frontend_info.input_size, source) != language->frontend_info.input_size) {
+    if(fread(language->input, sizeof(char), language->input_size, source) != language->input_size) {
         fclose(source);
         print_error("Error while reading source.\n");
         return LANGUAGE_READING_SOURCE_ERROR;
     }
     fclose(source);
 
-    _RETURN_IF_ERROR(nodes_storage_ctor(language, language->frontend_info.input_size));
-    _RETURN_IF_ERROR(name_table_ctor(language, language->frontend_info.input_size));
-    language->frontend_info.input_position = language->frontend_info.input;
+    _RETURN_IF_ERROR(nodes_storage_ctor(language, language->input_size));
+    _RETURN_IF_ERROR(name_table_ctor(language, language->input_size));
+    language->input_position = language->input;
     language->frontend_info.position = language->nodes.nodes;
     language->frontend_info.current_line = 1;
+    language->frontend_info.scope = 0;
     return LANGUAGE_SUCCESS;
 }
 
@@ -81,9 +82,9 @@ language_error_t parse_tokens(language_t *language) {
         if(isdigit(current_symbol(language))) {
             char *number_end = NULL;
             double value = strtod(input_position(language), &number_end);
-            _RETURN_IF_ERROR(nodes_storage_add(language, NODE_TYPE_NUMBER, NUMBER(value), input_position(language), (size_t)number_end - (size_t)input_position(language)));
+            _RETURN_IF_ERROR(nodes_storage_add(language, NODE_TYPE_NUMBER, NUMBER(value), input_position(language), (size_t)number_end - (size_t)input_position(language), NULL));
 
-            language->frontend_info.input_position = number_end;
+            language->input_position = number_end;
         }
         else {
             _RETURN_IF_ERROR(read_word(language));
@@ -91,7 +92,7 @@ language_error_t parse_tokens(language_t *language) {
         _RETURN_IF_ERROR(skip_spaces(language));
     }
 
-    _RETURN_IF_ERROR(nodes_storage_add(language, NODE_TYPE_OPERATION, OPCODE(OPERATION_PROGRAM_END), "", 0));
+    _RETURN_IF_ERROR(nodes_storage_add(language, NODE_TYPE_OPERATION, OPCODE(OPERATION_PROGRAM_END), "", 0, NULL));
     return LANGUAGE_SUCCESS;
 }
 
@@ -101,10 +102,10 @@ language_error_t read_word(language_t *language) {
     bool found = false;
     for(size_t elem = 1; elem < (size_t)OPERATION_PROGRAM_END; elem++) {
         if(strncmp(KeyWords[elem].name, input_position(language), length) == 0) {
-            _RETURN_IF_ERROR(nodes_storage_add(language, NODE_TYPE_OPERATION, OPCODE(KeyWords[elem].code), input_position(language), length));
+            _RETURN_IF_ERROR(nodes_storage_add(language, NODE_TYPE_OPERATION, OPCODE(KeyWords[elem].code), input_position(language), length, NULL));
             found = true;
             if(KeyWords[elem].code == OPERATION_BODY_END) {
-                _RETURN_IF_ERROR(nodes_storage_add(language, NODE_TYPE_OPERATION, OPCODE(OPERATION_STATEMENT), input_position(language), length));
+                _RETURN_IF_ERROR(nodes_storage_add(language, NODE_TYPE_OPERATION, OPCODE(OPERATION_STATEMENT), input_position(language), length, NULL));
             }
             break;
         }
@@ -118,9 +119,9 @@ language_error_t read_word(language_t *language) {
         if(!found) {
             _RETURN_IF_ERROR(name_table_add(language, input_position(language), length, &name_table_index));
         }
-        _RETURN_IF_ERROR(nodes_storage_add(language, NODE_TYPE_IDENTIFIER, IDENT(name_table_index), input_position(language), length));
+        _RETURN_IF_ERROR(nodes_storage_add(language, NODE_TYPE_IDENTIFIER, IDENT(name_table_index), input_position(language), length, NULL));
     }
-    language->frontend_info.input_position += length;
+    language->input_position += length;
     return LANGUAGE_SUCCESS;
 }
 
@@ -199,14 +200,16 @@ language_error_t get_new_function(language_t *language, language_node_t **output
     }
     (*output)->right = token_position(language);
     move_next_token(language);
-    _RETURN_IF_ERROR(name_table_set_defined(language, (*output)->right->value.identifier, IDENTIFIER_FUNCTION));
+    _RETURN_IF_ERROR(name_table_set_defined(language, (*output)->right->value.identifier, IDENTIFIER_FUNCTION, 0));
 
     if(!is_on_operation(language, OPERATION_OPEN_BRACKET)) {
         return syntax_error(language, "It is expected to see '(' after identifier when initializing function.\n");
     }
     move_next_token(language);
 
-    _RETURN_IF_ERROR(get_new_function_params(language, &(*output)->right->left));
+    size_t parameters_number = 0;
+    _RETURN_IF_ERROR(get_new_function_params(language, &(*output)->right->left, &parameters_number));
+    language->name_table.identifiers[(*output)->right->value.identifier].parameters_number = parameters_number;
 
     if(!is_on_operation(language, OPERATION_CLOSE_BRACKET)) {
         return syntax_error(language, "It is expected to see ')' after function parameters when initializing.\n");
@@ -218,16 +221,19 @@ language_error_t get_new_function(language_t *language, language_node_t **output
     return LANGUAGE_SUCCESS;
 }
 
-language_error_t get_new_function_params(language_t *language, language_node_t **output) {
+language_error_t get_new_function_params(language_t *language, language_node_t **output, size_t *parameters_number) {
     if(is_on_operation(language, OPERATION_CLOSE_BRACKET)) {
         return LANGUAGE_SUCCESS;
     }
     *output = token_position(language) - 1;
     (*output)->value.opcode = OPERATION_PARAM_LINKER;
     language_node_t *current_node = *output;
+    language->frontend_info.scope++;
     while(true) {
         _RETURN_IF_ERROR(get_new_variable(language, &current_node->left));
+        (*parameters_number)++;
         if(is_on_operation(language, OPERATION_CLOSE_BRACKET)) {
+            language->frontend_info.scope--;
             return LANGUAGE_SUCCESS;
         }
         if(!is_on_operation(language, OPERATION_PARAM_LINKER)) {
@@ -244,6 +250,7 @@ language_error_t get_body(language_t *language, language_node_t **output) {
         fprintf(stderr, "%d %d\n", token_position(language)->type, token_position(language)->value.opcode);
         return syntax_error(language, "It is expected to see some dead bodies here.\n");
     }
+    language->frontend_info.scope++;
     move_next_token(language);
     while(true) {
         language_node_t *statement = NULL;
@@ -258,6 +265,7 @@ language_error_t get_body(language_t *language, language_node_t **output) {
         (*output)->left = statement;
         move_next_token(language);
         if(is_on_operation(language, OPERATION_BODY_END)) {
+            language->frontend_info.scope--;
             move_next_token(language);
             return LANGUAGE_SUCCESS;
         }
@@ -321,7 +329,7 @@ language_error_t get_new_variable(language_t *language, language_node_t **output
     }
     language_node_t *identifier = token_position(language);
     move_next_token(language);
-    _RETURN_IF_ERROR(name_table_set_defined(language, identifier->value.identifier, IDENTIFIER_VARIABLE));
+    _RETURN_IF_ERROR(name_table_set_defined(language, identifier->value.identifier, IDENTIFIER_VARIABLE, language->frontend_info.scope));
     if(is_on_operation(language, OPERATION_ASIGNMENT)) {
         (*output)->right = token_position(language);
         move_next_token(language);
@@ -387,7 +395,9 @@ language_error_t get_function_call_params(language_t *language, language_node_t 
         }
         current_node->right = token_position(language);
         current_node = token_position(language);
-        move_next_token(language);
+        if(i + 1 != identifier->parameters_number) {
+            move_next_token(language);
+        }
     }
     return LANGUAGE_SUCCESS;
 }
@@ -544,7 +554,7 @@ language_error_t syntax_error(language_t *language, const char *format, ...) {
 
 language_error_t frontend_dtor(language_t *language) {
     dump_dtor(language);
-    free(language->frontend_info.input);
+    free(language->input);
     _RETURN_IF_ERROR(nodes_storage_dtor(language));
     memset(language, 0, sizeof(*language));
     return LANGUAGE_SUCCESS;
@@ -566,15 +576,15 @@ bool is_on_type(language_t *language, node_type_t type) {
 }
 
 void move_next_symbol(language_t *language) {
-    language->frontend_info.input_position++;
+    language->input_position++;
 }
 
 char current_symbol(language_t *language) {
-    return *language->frontend_info.input_position;
+    return *language->input_position;
 }
 
 char *input_position(language_t *language) {
-    return language->frontend_info.input_position;
+    return language->input_position;
 }
 
 language_error_t get_word_length(language_t *language, size_t *length) {

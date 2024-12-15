@@ -1,0 +1,8 @@
+ebal test(blyadskiy pizdos) {
+    otday pizdos + 10;
+}
+
+ebal main() {
+    blyadskiy huy = 10;
+    otday test(huy / 5);
+}
