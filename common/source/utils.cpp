@@ -5,7 +5,7 @@
 size_t file_size(FILE *file) {
     long current_position = ftell(file);
     fseek(file, 0, SEEK_END);
-    size_t size = ftell(file);
+    size_t size = (unsigned long)ftell(file);
     fseek(file, current_position, SEEK_SET);
     return size;
 }

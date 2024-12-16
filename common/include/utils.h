@@ -10,5 +10,13 @@ bool   is_equal         (double  first,
 
 size_t get_random_index (size_t  size);
 
+#ifdef __clang__
+    #define SZ_SP "%lu"
+#elif __GNUC__
+    #define SZ_SP "%llu"
+#elif __MINGW32__
+    #define SZ_SP "%llu"
+#endif
+
 #endif
 

@@ -18,7 +18,7 @@ static const char *get_node_color(language_t *language, language_node_t *node);
 language_error_t dump_ctor(language_t *language, const char *filename) {
     language->dump_info.filename = filename;
     char dump_name[256] = {};
-    sprintf(dump_name, "logs/%s.html", filename);
+    snprintf(dump_name, 256, "logs/%s.html", filename);
     language->dump_info.general_dump = fopen(dump_name, "w");
     return LANGUAGE_SUCCESS;
 }
@@ -30,7 +30,7 @@ language_error_t dump_dtor(language_t *language) {
 
 language_error_t dump_tree(language_t *language, const char *format, ...) {
     char dot_filename[256] = {};
-    sprintf(dot_filename, "logs/dot/%s%04llx.dot", language->dump_info.filename, language->dump_info.dumps_number);
+    snprintf(dot_filename, 256, "logs/dot/%s%04lx.dot", language->dump_info.filename, language->dump_info.dumps_number);
     FILE *dot_file = fopen(dot_filename, "w");
     if(dot_file == NULL) {
         print_error("Error while opening dot file.\n");
@@ -43,21 +43,24 @@ language_error_t dump_tree(language_t *language, const char *format, ...) {
     fprintf(dot_file, "}\n");
     fclose(dot_file);
     char command[256] = {};
-    sprintf(command, "dot %.*s -Tsvg -o logs/img/%s%04llx.svg", 255, dot_filename, language->dump_info.filename, language->dump_info.dumps_number);
+    snprintf(command, 256, "dot %.*s -Tsvg -o logs/img/%s%04lx.svg", 255, dot_filename, language->dump_info.filename, language->dump_info.dumps_number);
     system(command);
     fprintf(language->dump_info.general_dump, "<h1>");
     va_list args;
     va_start(args, format);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     vfprintf(language->dump_info.general_dump, format, args);
+#pragma clang diagnostic pop
     va_end(args);
-    fprintf(language->dump_info.general_dump, "</h1><img src = \"img/%s%04llx.svg\">", language->dump_info.filename, language->dump_info.dumps_number);
+    fprintf(language->dump_info.general_dump, "</h1><img src = \"img/%s%04lx.svg\">", language->dump_info.filename, language->dump_info.dumps_number);
     fflush(language->dump_info.general_dump);
     language->dump_info.dumps_number++;
     return LANGUAGE_SUCCESS;
 }
 
 language_error_t dump_subtree(language_t *language, language_node_t *root, size_t level, FILE *dot_file) {
-    fprintf(dot_file, "node%p[fillcolor = \"%s\", rank = %llu, label = \"{%p | {%p | %p} | ", root, get_node_color(language, root), level, root, root->left, root->right);
+    fprintf(dot_file, "node%p[fillcolor = \"%s\", rank = %lu, label = \"{%p | {%p | %p} | ", root, get_node_color(language, root), level, root, root->left, root->right);
 
     if(root->type == NODE_TYPE_NUMBER) {
         fprintf(dot_file, "NUMBER | %lg }\"];\n", root->value.number);

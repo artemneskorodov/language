@@ -1,6 +1,9 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
+
 #include "colors.h"
 #include "custom_assert.h"
 
@@ -166,3 +169,5 @@ const char *background_code(background_t background) {
             return NULL;
     }
 }
+
+#pragma clang diagnostic pop

@@ -1,6 +1,8 @@
 #ifndef COLORS_H
 #define COLORS_H
 
+#include <stdarg.h>
+
 enum color_t {
     RED_TEXT    ,
     GREEN_TEXT  ,

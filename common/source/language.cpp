@@ -6,6 +6,7 @@
 #include "language.h"
 #include "colors.h"
 #include "utils.h"
+#include "name_table.h"
 
 struct flag_prototype_t {
     const char *long_name;
@@ -17,8 +18,6 @@ struct flag_prototype_t {
 static language_error_t handler_output(language_t *language, int, size_t position, const char *argv[]);
 static language_error_t handler_input(language_t *language, int, size_t position, const char *argv[]);
 language_error_t write_subtree(language_t *language, language_node_t *node, size_t level, FILE *output);
-language_error_t compile_function_call(language_t *language, language_node_t *root, FILE *output);
-language_error_t compile_identifier(language_t *language, language_node_t *root, FILE *output);
 
 language_error_t read_name_table(language_t *language);
 language_error_t read_subtree(language_t *language, language_node_t **output);
@@ -161,24 +160,13 @@ language_error_t read_name_table(language_t *language) {
         while(isspace(*language->input_position)) {
             language->input_position++;
         }
-
-        char *scope_end = NULL;
-        size_t scope = strtoull(language->input_position, &scope_end, 10);
-        if(scope_end == NULL) {
-            print_error("Unexpected name table element structure. It is expected to look like '{LENGTH \"NAME\" TYPE SCOPE}'");
-            return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
-        }
-        language->input_position = scope_end;
-        while(isspace(*language->input_position)) {
-            language->input_position++;
-        }
-
         char *parameters_end = NULL;
         size_t parameters_number = strtoull(language->input_position, &parameters_end, 10);
         if(parameters_end == NULL) {
             print_error("Unexpected name table element structure. It is expected to look like '{LENGTH \"NAME\" TYPE SCOPE}'");
             return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
         }
+
         language->input_position = parameters_end;
         while(isspace(*language->input_position)) {
             language->input_position++;
@@ -191,8 +179,7 @@ language_error_t read_name_table(language_t *language) {
         language->input_position++;
 
         size_t name_index = 0;
-        _RETURN_IF_ERROR(name_table_add(language, name_start, name_size, &name_index));
-        _RETURN_IF_ERROR(name_table_set_defined(language, name_index, type, scope));
+        _RETURN_IF_ERROR(name_table_add(language, name_start, name_size, &name_index, type));
         language->name_table.identifiers[name_index].parameters_number = parameters_number;
     }
     return LANGUAGE_SUCCESS;
@@ -204,6 +191,7 @@ language_error_t read_subtree(language_t *language, language_node_t **output) {
     }
 
     if(*language->input_position != '{') {
+        fprintf(stderr, "%s\n", language->input_position);
         print_error("Node must start with '{'.\n");
         return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
     }
@@ -287,19 +275,18 @@ language_error_t write_tree(language_t *language) {
         print_error("Error while opening file to write tree.\n");
         return LANGUAGE_OPENING_FILE_ERROR;
     }
-    fprintf(output, "%llu\r\n", language->name_table.size);
+    fprintf(output, SZ_SP "\r\n", language->name_table.size);
     for(size_t elem = 0; elem < language->name_table.size; elem++) {
         identifier_t *identifier = language->name_table.identifiers + elem;
         fprintf(output,
-                "{%llu \"%.*s\" %d %llu %llu}\r\n",
+                "{" SZ_SP " \"%.*s\" %d %lu}\n",
                 identifier->length,
                 (int)identifier->length,
                 identifier->name,
                 identifier->type,
-                identifier->scope,
                 identifier->parameters_number);
     }
-    fprintf(output, "\r\n%llu\r\n", language->nodes.size);
+    fprintf(output, "\r\n" SZ_SP "\r\n", language->nodes.size);
     language_error_t error_code = write_subtree(language, language->root, 0, output);
     fclose(output);
     return error_code;
@@ -309,7 +296,7 @@ language_error_t write_subtree(language_t *language, language_node_t *node, size
     fprintf(output, "{ %d ", node->type);
     switch(node->type) {
         case NODE_TYPE_IDENTIFIER: {
-            fprintf(output, "%llu ", node->value.identifier);
+            fprintf(output, SZ_SP " ", node->value.identifier);
             break;
         }
         case NODE_TYPE_NUMBER: {
@@ -342,50 +329,17 @@ language_error_t write_subtree(language_t *language, language_node_t *node, size
     return LANGUAGE_SUCCESS;
 }
 
-language_error_t name_table_ctor(language_t *language, size_t capacity) {
-    language->name_table.identifiers = (identifier_t *)calloc(capacity, sizeof(language->name_table.identifiers[0]));
-    if(language->name_table.identifiers == NULL) {
-        print_error("Error while allocating memory to identifiers.\n");
-        return LANGUAGE_MEMORY_ERROR;
-    }
-
-    language->name_table.size = 0;
-    language->name_table.capacity = capacity;
-    return LANGUAGE_SUCCESS;
-}
-
-language_error_t name_table_add(language_t *language, const char *name, size_t length, size_t *index) {
-    //TODO add checking size
-    identifier_t *identifier = language->name_table.identifiers + language->name_table.size;
-
-    identifier->name = name;
-    identifier->length = length;
-
-    if(index != NULL) {
-        *index = language->name_table.size;
-    }
-
-    language->name_table.size++;
-    return LANGUAGE_SUCCESS;
-}
-//TODO add setting identifier type
-
-language_error_t name_table_find(language_t *language, const char *name, size_t length, size_t *index) {
-    for(size_t elem = 0; elem < language->name_table.size; elem++) {
-        if(language->name_table.identifiers[elem].length == length &&
-           strncmp(language->name_table.identifiers[elem].name, name, length) == 0) {
-            *index = elem;
-            return LANGUAGE_SUCCESS;
+language_error_t verify_keywords(void) {
+    for(size_t i = 1; i < sizeof(KeyWords) / sizeof(KeyWords[0]); i++) {
+        if((size_t)KeyWords[i].code != i) {
+            print_error("Broken keywords table.\n");
+            return LANGUAGE_BROKEN_KEYWORDS_TABLE;
         }
     }
     return LANGUAGE_SUCCESS;
 }
 
-language_error_t name_table_dtor(language_t *language) {
-    free(language->name_table.identifiers);
-    return LANGUAGE_SUCCESS;
-}
-
+//TODO check if needed
 language_error_t get_identifier(language_t *language, language_node_t *node, identifier_t **identifier) {
     if(node->type != NODE_TYPE_IDENTIFIER) {
         print_error("Identifier getting function call for non identifier node.\n");
@@ -396,19 +350,6 @@ language_error_t get_identifier(language_t *language, language_node_t *node, ide
         return LANGUAGE_INVALID_NODE_VALUE;
     }
     *identifier = language->name_table.identifiers + node->value.identifier;
-    return LANGUAGE_SUCCESS;
-}
-
-language_error_t name_table_set_defined(language_t *language, size_t index, identifier_type_t type, size_t scope) {
-    if(index >= language->name_table.size) {
-        print_error("Identifier index is bigger that name table size.\n");
-        return LANGUAGE_INVALID_NODE_VALUE;
-    }
-    identifier_t *identifier = language->name_table.identifiers + index;
-
-    identifier->is_defined = true;
-    identifier->type = type;
-    identifier->scope = scope;
     return LANGUAGE_SUCCESS;
 }
 
@@ -432,7 +373,7 @@ language_error_t parse_flags(language_t *language, int argc, const char *argv[])
             return LANGUAGE_UNKNOWN_FLAG;
         }
         if(elem + SupportedFlags[index].params >= (size_t)argc) {
-            print_error("Flag '%s' is expected to have %llu parameters after it.\n",
+            print_error("Flag '%s' is expected to have " SZ_SP " parameters after it.\n",
                         argv[elem],
                         SupportedFlags[index].params);
             return LANGUAGE_PARSING_FLAGS_ERROR;
@@ -443,266 +384,12 @@ language_error_t parse_flags(language_t *language, int argc, const char *argv[])
     return LANGUAGE_SUCCESS;
 }
 
-language_error_t handler_input(language_t *language, int, size_t position, const char *argv[]) {
+language_error_t handler_input(language_t *language, int /*argc*/, size_t position, const char *argv[]) {
     language->input_file = argv[position + 1];
     return LANGUAGE_SUCCESS;
 }
 
-language_error_t handler_output(language_t *language, int, size_t position, const char *argv[]) {
+language_error_t handler_output(language_t *language, int /*argc*/, size_t position, const char *argv[]) {
     language->output_file = argv[position + 1];
     return LANGUAGE_SUCCESS;
 }
-
-language_error_t compile_subtree(language_t *language, language_node_t *root, FILE *output) {
-    if(root == NULL) {
-        return LANGUAGE_SUCCESS;
-    }
-    switch(root->type) {
-        case NODE_TYPE_IDENTIFIER: {
-            _RETURN_IF_ERROR(compile_identifier(language, root, output));
-            break;
-        }
-        case NODE_TYPE_NUMBER: {
-            fprintf(output, "push %lg\r\n", root->value.number);
-            break;
-        }
-        case NODE_TYPE_OPERATION: {
-            fprintf(stderr, "%p\n", root);
-            _RETURN_IF_ERROR(KeyWords[root->value.opcode].assemble(language, root, output));
-            break;
-        }
-        default: {
-            print_error("Unknown node type.\n");
-            return LANGUAGE_UNKNOWN_NODE_TYPE;
-        }
-    }
-    return LANGUAGE_SUCCESS;
-}
-
-language_error_t compile_identifier(language_t *language, language_node_t *root, FILE *output) {
-    identifier_t *identifier = language->name_table.identifiers + root->value.identifier;
-    switch(identifier->type) {
-        case IDENTIFIER_FUNCTION: {
-            _RETURN_IF_ERROR(compile_function_call(language, root, output));
-            break;
-        }
-        case IDENTIFIER_VARIABLE: {
-            if(identifier->scope == 0) {
-                fprintf(output, "push [%llu]\r\n", identifier->memory_addr);
-            }
-            else {
-                fprintf(output, "push [bx + %llu]\r\n", identifier->memory_addr);
-            }
-            break;
-        }
-        default: {
-            print_error("Unknown identifier type.\n");
-            return LANGUAGE_UNKNOWN_IDENTIFIER_TYPE;
-        }
-    }
-    return LANGUAGE_SUCCESS;
-}
-
-language_error_t compile_function_call(language_t *language, language_node_t *root, FILE *output) {
-    identifier_t *identifier = language->name_table.identifiers + root->value.identifier;
-    language_node_t *param = root->right;
-
-    // size_t counter = 0;
-    fprintf(output, "push bx ;saving bx\r\n");
-    while(param != NULL) {
-        _RETURN_IF_ERROR(compile_subtree(language, param->left, output));
-        // fprintf(output, "pop [bx + %llu]\r\n", counter++);
-        param = param->right;
-    }
-
-    fprintf(output,
-            "push bx\r\npush bx\r\npush %llu\r\nadd\r\npop bx\r\n",
-            identifier->parameters_number + language->backend_info.used_locals);
-    for(size_t i = 0; i < identifier->parameters_number; i++) {
-        fprintf(output, "pop [bx + %llu]\r\n", i);
-    }
-    fprintf(output,
-            "call %.*s:\r\n"
-            "pop bx\r\n"
-            "push ax\r\n",
-            (int)identifier->length,
-            identifier->name);
-    return LANGUAGE_SUCCESS;
-}
-
-language_error_t assemble_two_args(language_t *language, language_node_t *node, FILE *output) {
-    _RETURN_IF_ERROR(compile_subtree(language, node->left, output));
-    _RETURN_IF_ERROR(compile_subtree(language, node->right, output));
-    fprintf(output,
-            "%s\r\n",
-            KeyWords[node->value.opcode].assembler_command);
-    return LANGUAGE_SUCCESS;
-}
-
-language_error_t assemble_one_arg(language_t *language, language_node_t *node, FILE *output) {
-    _RETURN_IF_ERROR(compile_subtree(language, node->right, output));
-    fprintf(output,
-            "%s\r\n",
-            KeyWords[node->value.opcode].assembler_command);
-    return LANGUAGE_SUCCESS;
-}
-
-
-/*
-push LEFT
-push RIGHT
-
-jb comp_false_NUM:
-push 1
-jmp comp_fale_end_NUM:
-comp_false_NUM:
-    push 0
-comp_false_end_NUM:
-*/
-language_error_t assemble_comparison(language_t *language, language_node_t *node, FILE *output) {
-    _RETURN_IF_ERROR(compile_subtree(language, node->left, output));
-    _RETURN_IF_ERROR(compile_subtree(language, node->right, output));
-    size_t num = language->backend_info.used_labels++;
-    fprintf(output,
-            "%s comp_false_%llu:\r\n"
-            "push 1\r\n"
-            "jmp comp_false_end_%llu:\r\n"
-            "comp_false_%llu:\r\n"
-            "push 0\r\n"
-            "comp_false_end_%llu:\r\n",
-            KeyWords[node->value.opcode].assembler_command,
-            num, num, num, num);
-    return LANGUAGE_SUCCESS;
-}
-
-/*
-push RIGHT
-pop [addr]
-*/
-language_error_t assemble_asignment(language_t *language, language_node_t *node, FILE *output) {
-    _RETURN_IF_ERROR(compile_subtree(language, node->right, output));
-    // if(!is_ident_type(language, node->left, IDENTIFIER_VARIABLE)) {
-    //     return LANGUAGE_TREE_ERROR;
-    // }
-    identifier_t *identifier = language->name_table.identifiers + node->left->value.identifier;
-    fprintf(output,
-            "pop [%s%llu] ;pop to %.*s\r\n",
-            identifier->scope == 0 ? "" : "bx + ",
-            identifier->memory_addr,
-            (int)identifier->length,
-            identifier->name);
-    return LANGUAGE_SUCCESS;
-}
-
-language_error_t assemble_statements_line(language_t *language, language_node_t *node, FILE *output) {
-    // size_t old_used_locals = language->backend_info.used_locals;
-    // language->backend_info.used_locals = 0;
-    while(node != NULL) {
-        if(node->left->type == NODE_TYPE_OPERATION && node->left->value.opcode == OPERATION_NEW_VAR) {
-            language->backend_info.used_locals++;
-        }
-        _RETURN_IF_ERROR(compile_subtree(language, node->left, output));
-        node = node->right;
-    }
-    // language->backend_info.used_locals = old_used_locals;
-    return LANGUAGE_SUCCESS;
-}
-
-/*
-push LEFT
-push 0
-je skip_left_NUM:
-{body}
-skip_left_NUM:
-*/
-language_error_t assemble_if(language_t *language, language_node_t *node, FILE *output) {
-    _RETURN_IF_ERROR(compile_subtree(language, node->left, output));
-    fprintf(output,
-            "push 0\r\n"
-            "je skip_if_%llu:\r\n",
-            language->backend_info.used_labels);
-
-    _RETURN_IF_ERROR(compile_subtree(language, node->right, output));
-    fprintf(output,
-            "skip_if_%llu:\r\n",
-            language->backend_info.used_labels);
-    return LANGUAGE_SUCCESS;
-}
-
-language_error_t assemble_while(language_t *language, language_node_t *node, FILE *output) {
-    _RETURN_IF_ERROR(compile_subtree(language, node->left, output));
-    size_t num = language->backend_info.used_labels;
-    fprintf(output,
-            "while_start%llu:\r\n"
-            "push 0\r\n"
-            "je skip_while_%llu:\r\n",
-            num, num);
-
-    _RETURN_IF_ERROR(compile_subtree(language, node->right, output));
-
-    fprintf(output,
-            "jmp while_start%llu:\r\n"
-            "skip_if_%llu:\r\n",
-            num, num);
-    return LANGUAGE_SUCCESS;
-}
-
-language_error_t assemble_return(language_t *language, language_node_t *node, FILE *output) {
-    _RETURN_IF_ERROR(compile_subtree(language, node->right, output));
-    fprintf(output,
-            "pop ax\r\n"
-            "ret\r\n");
-    return LANGUAGE_SUCCESS;
-}
-
-language_error_t assemble_params_line(language_t *language, language_node_t *node, FILE *output) {
-    while(node != NULL) {
-        _RETURN_IF_ERROR(compile_subtree(language, node->left, output));
-        node = node->right;
-    }
-    return LANGUAGE_SUCCESS;
-}
-
-language_error_t assemble_new_var(language_t *language, language_node_t *node, FILE *output) {
-    language_node_t *identifier = NULL;
-    //TODO check that identifiers
-    if(node->right->type == NODE_TYPE_OPERATION) {
-        identifier = node->right->left;
-    }
-    else {
-        identifier = node->right;
-    }
-
-    fprintf(stderr, "---------\n%.*s\n%llu\n---------\n", language->name_table.identifiers[identifier->value.identifier].length, language->name_table.identifiers[identifier->value.identifier].name, language->backend_info.used_locals);
-    language->name_table.identifiers[identifier->value.identifier].memory_addr = language->backend_info.used_locals; //FIXME
-
-    if(node->right->type == NODE_TYPE_OPERATION) {
-        //TODO check that =
-        _RETURN_IF_ERROR(assemble_asignment(language, node->right, output));
-    }
-    if(language->name_table.identifiers[identifier->value.identifier].scope == 0) {
-        language->backend_info.used_memory++;
-    }
-    return LANGUAGE_SUCCESS;
-}
-
-language_error_t assemble_new_func(language_t *language, language_node_t *node, FILE *output) {
-    identifier_t *identifier = language->name_table.identifiers + node->right->value.identifier;
-    fprintf(output,
-            "jmp skip_%.*s:\r\n" //FIXME mabe we don't need it
-            "%.*s:\r\n",
-            (int)identifier->length, identifier->name,
-            (int)identifier->length, identifier->name);
-
-    size_t old_locals = language->backend_info.used_locals;
-    language->backend_info.used_locals = 0;
-    _RETURN_IF_ERROR(compile_subtree(language, node->right->left, output));
-    _RETURN_IF_ERROR(compile_subtree(language, node->right->right, output));
-    language->backend_info.used_locals = old_locals;
-
-    fprintf(output,
-            "skip_%.*s:\r\n",
-            (int)identifier->length, identifier->name);
-    return LANGUAGE_SUCCESS;
-}
-

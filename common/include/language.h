@@ -21,6 +21,8 @@ enum language_error_t {
     LANGUAGE_DUMP_FILE_ERROR = 14,
     LANGUAGE_READING_TREE_ERROR = 15,
     LANGUAGE_UNKNOWN_CODE_TREE_TYPE = 16,
+    LANGUAGE_BROKEN_KEYWORDS_TABLE = 17,
+    LANGUAGE_TREE_ERROR = 18,
     //TODO
 };
 
@@ -41,7 +43,7 @@ enum operation_t {
     OPERATION_POW = 7,
     OPERATION_BIGGER = 8,
     OPERATION_SMALLER = 9,
-    OPERATION_ASIGNMENT = 10,
+    OPERATION_ASSIGNMENT = 10,
     OPERATION_OPEN_BRACKET = 11,
     OPERATION_CLOSE_BRACKET = 12,
     OPERATION_BODY_START = 13,
@@ -79,7 +81,8 @@ struct language_node_t {
 
 enum identifier_type_t {
     IDENTIFIER_FUNCTION = 1,
-    IDENTIFIER_VARIABLE = 2,
+    IDENTIFIER_GLOBAL_VAR = 2,
+    IDENTIFIER_LOCAL_VAR = 3,
 };
 
 struct identifier_t {
@@ -89,13 +92,21 @@ struct identifier_t {
     size_t parameters_number;
     bool is_defined;
     size_t memory_addr;
-    size_t scope;
+};
+
+struct name_t {
+    size_t length;
+    const char *name;
 };
 
 struct name_table_t {
     identifier_t *identifiers;
     size_t size;
     size_t capacity;
+    size_t *stack;
+    size_t stack_size;
+    name_t *used_names;
+    size_t used_names_size;
 };
 
 struct nodes_storage_t {
@@ -107,13 +118,15 @@ struct nodes_storage_t {
 struct frontend_info_t {
     language_node_t *position;
     size_t current_line;
-    size_t scope;
+    size_t used_locals;
 };
 
 struct backend_info_t {
-    size_t used_memory;
+    size_t used_globals;
     size_t used_labels;
     size_t used_locals;
+    int scope;
+    FILE *output;
 };
 
 struct dump_info_t {
@@ -131,7 +144,7 @@ struct language_t {
 
     char *input;
     size_t input_size;
-    char *input_position;
+    const char *input_position;
 
     frontend_info_t frontend_info;
     backend_info_t backend_info;
@@ -150,31 +163,17 @@ language_error_t nodes_storage_dtor(language_t *language);
 language_error_t parse_flags(language_t *language, int argc, const char *argv[]);
 language_error_t read_tree(language_t *language);
 language_error_t write_tree(language_t *language);
-language_error_t name_table_ctor(language_t *language, size_t capacity);
-language_error_t name_table_add(language_t *language, const char *name, size_t length, size_t *index);
-language_error_t name_table_find(language_t *language, const char *name, size_t length, size_t *index);
-language_error_t name_table_dtor(language_t *language);
 language_error_t get_identifier(language_t *language, language_node_t *node, identifier_t **identifier);
-language_error_t name_table_set_defined(language_t *language, size_t index, identifier_type_t type, size_t scope);
-language_error_t compile_subtree(language_t *language, language_node_t *root, FILE *output);
+language_error_t verify_keywords(void);
+
 //TODO
-language_error_t assemble_two_args(language_t *language, language_node_t *node, FILE *output);
-language_error_t assemble_one_arg(language_t *language, language_node_t *node, FILE *output);
-language_error_t assemble_comparison(language_t *language, language_node_t *node, FILE *output);
-language_error_t assemble_statements_line(language_t *language, language_node_t *node, FILE *output);
-language_error_t assemble_if(language_t *language, language_node_t *node, FILE *output);
-language_error_t assemble_while(language_t *language, language_node_t *node, FILE *output);
-language_error_t assemble_return(language_t *language, language_node_t *node, FILE *output);
-language_error_t assemble_params_line(language_t *language, language_node_t *node, FILE *output);
-language_error_t assemble_new_var(language_t *language, language_node_t *node, FILE *output);
-language_error_t assemble_new_func(language_t *language, language_node_t *node, FILE *output);
-language_error_t assemble_asignment(language_t *language, language_node_t *node, FILE *output);;
+#include "assemble.h"
 
 struct keyword_t {
     const char *name;
     size_t length;
     operation_t code;
-    language_error_t (*assemble)(language_t *, language_node_t *, FILE *);
+    language_error_t (*assemble)(language_t *, language_node_t *);
     const char *assembler_command;
     bool is_expression_element;
 };
@@ -192,7 +191,7 @@ static const keyword_t KeyWords[] = {
     {STR_LEN("^"), OPERATION_POW, assemble_two_args, "pow", false},
     {STR_LEN(">"), OPERATION_BIGGER, assemble_comparison, "ja", false},
     {STR_LEN("<"), OPERATION_SMALLER, assemble_comparison, "jb", false},
-    {STR_LEN("="), OPERATION_ASIGNMENT, assemble_asignment, NULL, false},
+    {STR_LEN("="), OPERATION_ASSIGNMENT, assemble_assignment, NULL, false},
     {STR_LEN("("), OPERATION_OPEN_BRACKET, NULL, NULL, false},
     {STR_LEN(")"), OPERATION_CLOSE_BRACKET, NULL, NULL, false},
     {STR_LEN("{"), OPERATION_BODY_START, NULL, NULL, false},
