@@ -23,6 +23,19 @@ enum language_error_t {
     LANGUAGE_UNKNOWN_CODE_TREE_TYPE = 16,
     LANGUAGE_BROKEN_KEYWORDS_TABLE = 17,
     LANGUAGE_TREE_ERROR = 18,
+    LANGUAGE_CTX_NULL = 19,
+    LANGUAGE_NULL_OUTPUT = 20,
+    LANGUAGE_UNSUPPORTED_TREE = 21,
+    LANGUAGE_NULL_PROGRAM_INPUT = 22,
+    LANGUAGE_WRITING_ASM_ERROR = 23,
+    LANGUAGE_NODE_NULL = 24,
+    LANGUAGE_STRING_FORMAT_NULL = 25,
+    LANGUAGE_INPUT_POSITION_NULL = 26,
+    LANGUAGE_INPUT_NULL = 27,
+    LANGUAGE_NT_NOT_INIT = 27,
+    LANGUAGE_UNEXPECTED_ID_TYPE = 28,
+    LANGUAGE_UNEXPECTED_NODE_TYPE = 29,
+    LANGUAGE_UNEXPECTED_OPER = 30,
     //TODO
 };
 
@@ -56,7 +69,9 @@ enum operation_t {
     OPERATION_NEW_VAR = 20,
     OPERATION_NEW_FUNC = 21,
     //TODO
-    OPERATION_PROGRAM_END = 22,
+    OPERATION_IN = 22,
+    OPERATION_OUT = 23,
+    OPERATION_PROGRAM_END = 24,
 };
 
 union value_t {
@@ -152,9 +167,8 @@ struct language_t {
     const char *output_file;
 };
 
-//FIXME
-#define NUMBER(_value) (value_t){.number = (_value)}
-#define OPCODE(_value) (value_t){.opcode = (_value)}
+#define NUMBER(_value) (value_t){.number     = (_value)}
+#define OPCODE(_value) (value_t){.opcode     = (_value)}
 #define IDENT(_value)  (value_t){.identifier = (_value)}
 
 language_error_t nodes_storage_ctor(language_t *language, size_t capacity);
@@ -163,10 +177,9 @@ language_error_t nodes_storage_dtor(language_t *language);
 language_error_t parse_flags(language_t *language, int argc, const char *argv[]);
 language_error_t read_tree(language_t *language);
 language_error_t write_tree(language_t *language);
-language_error_t get_identifier(language_t *language, language_node_t *node, identifier_t **identifier);
 language_error_t verify_keywords(void);
 
-//TODO
+//TODO minet sevastyanu
 #include "assemble.h"
 
 struct keyword_t {
@@ -203,6 +216,8 @@ static const keyword_t KeyWords[] = {
     {STR_LEN(","), OPERATION_PARAM_LINKER, assemble_params_line, NULL, false},
     {STR_LEN("blyadskiy"), OPERATION_NEW_VAR, assemble_new_var, NULL, false},
     {STR_LEN("ebal"), OPERATION_NEW_FUNC, assemble_new_func, NULL, false},
+    {STR_LEN("vozmi"), OPERATION_IN, assemble_in, NULL, false},
+    {STR_LEN("pokazhi"), OPERATION_OUT, assemble_out, NULL, false},
     //TODO
     {NULL, 0, OPERATION_PROGRAM_END, NULL, NULL, false},
 };

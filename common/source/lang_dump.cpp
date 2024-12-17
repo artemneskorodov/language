@@ -82,7 +82,7 @@ language_error_t dump_subtree(language_t *language, language_node_t *root, size_
         fprintf(dot_file, "OPERATION | %s}\"];\n", string_operation == NULL ? "NULL" : string_operation);
     }
     else if(root->type == NODE_TYPE_IDENTIFIER) {
-        fprintf(dot_file, "IDENTIFIER | %.*s}\"];\n", (int)language->name_table.identifiers[root->value.identifier].length, language->name_table.identifiers[root->value.identifier].name);
+        fprintf(dot_file, "IDENTIFIER | %lu - %.*s}\"];\n", root->value.identifier, (int)language->name_table.identifiers[root->value.identifier].length, language->name_table.identifiers[root->value.identifier].name);
     }
 
     if(root->left != NULL) {

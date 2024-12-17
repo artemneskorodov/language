@@ -17,14 +17,15 @@ struct flag_prototype_t {
 
 static language_error_t handler_output(language_t *language, int, size_t position, const char *argv[]);
 static language_error_t handler_input(language_t *language, int, size_t position, const char *argv[]);
-language_error_t write_subtree(language_t *language, language_node_t *node, size_t level, FILE *output);
+static language_error_t skip_spaces(language_t *language);
+static language_error_t write_subtree(language_t *language, language_node_t *node, FILE *output);
 
-language_error_t read_name_table(language_t *language);
-language_error_t read_subtree(language_t *language, language_node_t **output);
+static language_error_t read_name_table(language_t *language);
+static language_error_t read_subtree(language_t *language, language_node_t **output);
 
 static const flag_prototype_t SupportedFlags[] = {
     {"-o", "--output", 1, handler_output},
-    {"-i", "--input", 1, handler_input}
+    {"-i", "--input" , 1, handler_input }
 };
 
 language_error_t nodes_storage_ctor(language_t *language, size_t capacity) {
@@ -76,9 +77,7 @@ language_error_t read_tree(language_t *language) {
     language->input_position = language->input;
     _RETURN_IF_ERROR(read_name_table(language));
 
-    while(isspace(*language->input_position)) {
-        language->input_position++;
-    }
+    _RETURN_IF_ERROR(skip_spaces(language));
     char *nodes_number_end = NULL;
     size_t nodes_number = strtoull(language->input_position, &nodes_number_end, 10);
     if(nodes_number_end == NULL) {
@@ -93,9 +92,7 @@ language_error_t read_tree(language_t *language) {
 }
 
 language_error_t read_name_table(language_t *language) {
-    while(isspace(*language->input_position)) {
-        language->input_position++;
-    }
+    _RETURN_IF_ERROR(skip_spaces(language));
     char *length_end = NULL;
     size_t name_table_size = strtoull(language->input_position, &length_end, 10);
     if(length_end == NULL) {
@@ -107,73 +104,58 @@ language_error_t read_name_table(language_t *language) {
     language->input_position = length_end;
 
     for(size_t elem = 0; elem < name_table_size; elem++) {
-        while(isspace(*language->input_position)) {
-            language->input_position++;
-        }
-
+        _RETURN_IF_ERROR(skip_spaces(language));
         if(*language->input_position != '{') {
-            print_error("Unexpected name table element structure. It is expected to look like '{LENGTH \"NAME\" TYPE SCOPE}'");
+            print_error("Error on %lu.\nUnexpected name table element structure. It is expected to look like '{LENGTH \"NAME\" TYPE SCOPE}'", (size_t)language->input_position - (size_t)language->input);
             return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
         }
         language->input_position++;
 
-        while(isspace(*language->input_position)) {
-            language->input_position++;
-        }
-
+        _RETURN_IF_ERROR(skip_spaces(language));
         char *name_length_end = NULL;
         size_t name_size = strtoull(language->input_position, &name_length_end, 10);
         if(name_length_end == NULL) {
-            print_error("Unexpected name table element structure. It is expected to look like '{LENGTH \"NAME\" TYPE SCOPE}'");
+            print_error("Error on %lu.\nUnexpected name table element structure. It is expected to look like '{LENGTH \"NAME\" TYPE SCOPE}'", (size_t)language->input_position - (size_t)language->input);
             return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
         }
         language->input_position = name_length_end;
 
-        while(isspace(*language->input_position)) {
-            language->input_position++;
-        }
-
+        _RETURN_IF_ERROR(skip_spaces(language));
         if(*language->input_position != '"') {
-            print_error("Unexpected name table element structure. It is expected to look like '{LENGTH \"NAME\" TYPE SCOPE}'");
+            print_error("Error on %lu.\nUnexpected name table element structure. It is expected to look like '{LENGTH \"NAME\" TYPE SCOPE}'", (size_t)language->input_position - (size_t)language->input);
             return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
         }
         language->input_position++;
 
         const char *name_start = language->input_position;
-        while(*language->input_position != '"') {
-            language->input_position++;
+        language->input_position += name_size;
+        if(*language->input_position != '"') {
+            print_error("Error on %lu.\nUnexpected name table element structure. It is expected to look like '{LENGTH \"NAME\" TYPE SCOPE}'", (size_t)language->input_position - (size_t)language->input);
+            return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
         }
         language->input_position++;
 
-        while(isspace(*language->input_position)) {
-            language->input_position++;
-        }
-
+        _RETURN_IF_ERROR(skip_spaces(language));
         char *type_end = NULL;
         identifier_type_t type = (identifier_type_t)strtol(language->input_position, &type_end, 10);
         if(type_end == NULL) {
-            print_error("Unexpected name table element structure. It is expected to look like '{LENGTH \"NAME\" TYPE SCOPE}'");
+            print_error("Error on %lu.\nUnexpected name table element structure. It is expected to look like '{LENGTH \"NAME\" TYPE SCOPE}'", (size_t)language->input_position - (size_t)language->input);
             return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
         }
         language->input_position = type_end;
 
-        while(isspace(*language->input_position)) {
-            language->input_position++;
-        }
+        _RETURN_IF_ERROR(skip_spaces(language));
         char *parameters_end = NULL;
         size_t parameters_number = strtoull(language->input_position, &parameters_end, 10);
         if(parameters_end == NULL) {
-            print_error("Unexpected name table element structure. It is expected to look like '{LENGTH \"NAME\" TYPE SCOPE}'");
+            print_error("Error on %lu.\nUnexpected name table element structure. It is expected to look like '{LENGTH \"NAME\" TYPE SCOPE}'", (size_t)language->input_position - (size_t)language->input);
             return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
         }
-
         language->input_position = parameters_end;
-        while(isspace(*language->input_position)) {
-            language->input_position++;
-        }
 
+        _RETURN_IF_ERROR(skip_spaces(language));
         if(*language->input_position != '}') {
-            print_error("Unexpected name table element structure. It is expected to look like '{LENGTH \"NAME\" TYPE SCOPE}'");
+            print_error("Error on %lu.\nUnexpected name table element structure. It is expected to look like '{LENGTH \"NAME\" TYPE SCOPE}'", (size_t)language->input_position - (size_t)language->input);
             return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
         }
         language->input_position++;
@@ -186,20 +168,14 @@ language_error_t read_name_table(language_t *language) {
 }
 
 language_error_t read_subtree(language_t *language, language_node_t **output) {
-    while(isspace(*language->input_position)) {
-        language->input_position++;
-    }
-
+    _RETURN_IF_ERROR(skip_spaces(language));
     if(*language->input_position != '{') {
-        fprintf(stderr, "%s\n", language->input_position);
         print_error("Node must start with '{'.\n");
         return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
     }
     language->input_position++;
 
-    while(isspace(*language->input_position)) {
-        language->input_position++;
-    }
+    _RETURN_IF_ERROR(skip_spaces(language));
     char *type_end = NULL;
     node_type_t type = (node_type_t)strtol(language->input_position, &type_end, 10);
     if(type_end == NULL) {
@@ -208,10 +184,7 @@ language_error_t read_subtree(language_t *language, language_node_t **output) {
     }
     language->input_position = type_end;
 
-    while(isspace(*language->input_position)) {
-        language->input_position++;
-    }
-
+    _RETURN_IF_ERROR(skip_spaces(language));
     value_t value;
     char *value_end = NULL;
     switch(type) {
@@ -237,9 +210,7 @@ language_error_t read_subtree(language_t *language, language_node_t **output) {
     language_node_t *node = NULL;
     _RETURN_IF_ERROR(nodes_storage_add(language, type, value, NULL, 0, &node));
 
-    while(isspace(*language->input_position)) {
-        language->input_position++;
-    }
+    _RETURN_IF_ERROR(skip_spaces(language));
     if(*language->input_position != '-') {
         _RETURN_IF_ERROR(read_subtree(language, &node->left));
     }
@@ -247,9 +218,7 @@ language_error_t read_subtree(language_t *language, language_node_t **output) {
         language->input_position++;
     }
 
-    while(isspace(*language->input_position)) {
-        language->input_position++;
-    }
+    _RETURN_IF_ERROR(skip_spaces(language));
     if(*language->input_position != '-') {
         _RETURN_IF_ERROR(read_subtree(language, &node->right));
     }
@@ -257,9 +226,7 @@ language_error_t read_subtree(language_t *language, language_node_t **output) {
         language->input_position++;
     }
 
-    while(isspace(*language->input_position)) {
-        language->input_position++;
-    }
+    _RETURN_IF_ERROR(skip_spaces(language));
     if(*language->input_position != '}') {
         print_error("Node must end with '}'.\n");
         return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
@@ -287,12 +254,12 @@ language_error_t write_tree(language_t *language) {
                 identifier->parameters_number);
     }
     fprintf(output, "\r\n" SZ_SP "\r\n", language->nodes.size);
-    language_error_t error_code = write_subtree(language, language->root, 0, output);
+    language_error_t error_code = write_subtree(language, language->root, output);
     fclose(output);
     return error_code;
 }
 
-language_error_t write_subtree(language_t *language, language_node_t *node, size_t level, FILE *output) {
+language_error_t write_subtree(language_t *language, language_node_t *node, FILE *output) {
     fprintf(output, "{ %d ", node->type);
     switch(node->type) {
         case NODE_TYPE_IDENTIFIER: {
@@ -313,13 +280,13 @@ language_error_t write_subtree(language_t *language, language_node_t *node, size
         }
     }
     if(node->left != NULL) {
-        _RETURN_IF_ERROR(write_subtree(language, node->left, level + 1, output)); //FIXME check if level needed
+        _RETURN_IF_ERROR(write_subtree(language, node->left, output)); //FIXME check if level needed
     }
     else {
         fprintf(output, "- ");
     }
     if(node->right != NULL) {
-        _RETURN_IF_ERROR(write_subtree(language, node->right, level + 1, output));
+        _RETURN_IF_ERROR(write_subtree(language, node->right, output));
     }
     else {
         fprintf(output, "- ");
@@ -336,20 +303,6 @@ language_error_t verify_keywords(void) {
             return LANGUAGE_BROKEN_KEYWORDS_TABLE;
         }
     }
-    return LANGUAGE_SUCCESS;
-}
-
-//TODO check if needed
-language_error_t get_identifier(language_t *language, language_node_t *node, identifier_t **identifier) {
-    if(node->type != NODE_TYPE_IDENTIFIER) {
-        print_error("Identifier getting function call for non identifier node.\n");
-        return LANGUAGE_INVALID_NODE_TYPE;
-    }
-    if(node->value.identifier >= language->name_table.size) {
-        print_error("Identifier index is bigger that name table size.\n");
-        return LANGUAGE_INVALID_NODE_VALUE;
-    }
-    *identifier = language->name_table.identifiers + node->value.identifier;
     return LANGUAGE_SUCCESS;
 }
 
@@ -391,5 +344,12 @@ language_error_t handler_input(language_t *language, int /*argc*/, size_t positi
 
 language_error_t handler_output(language_t *language, int /*argc*/, size_t position, const char *argv[]) {
     language->output_file = argv[position + 1];
+    return LANGUAGE_SUCCESS;
+}
+
+language_error_t skip_spaces(language_t *language) {
+    while(isspace(*language->input_position)) {
+        language->input_position++;
+    }
     return LANGUAGE_SUCCESS;
 }

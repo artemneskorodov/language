@@ -5,7 +5,7 @@
 #include "language.h"
 #include "name_table.h"
 #include "colors.h"
-
+#include "custom_assert.h"
 
 language_error_t name_table_ctor(language_t *language, size_t capacity) {
     language->name_table.identifiers = (identifier_t *)calloc(capacity, sizeof(language->name_table.identifiers[0]));
@@ -37,6 +37,16 @@ language_error_t name_table_add(language_t *language, const char *name, size_t l
 
 language_error_t name_table_dtor(language_t *language) {
     free(language->name_table.identifiers);
+    return LANGUAGE_SUCCESS;
+}
+
+language_error_t set_memory_addr(language_t *language, language_node_t *node, size_t addr) {
+    _C_ASSERT(node->type == NODE_TYPE_IDENTIFIER, return LANGUAGE_INVALID_NODE_TYPE);
+    size_t index = node->value.identifier;
+    if(index >= language->name_table.size) {
+        print_error("Node index is bigger that name table size.\n");
+    }
+    language->name_table.identifiers[index].memory_addr = addr;
     return LANGUAGE_SUCCESS;
 }
 

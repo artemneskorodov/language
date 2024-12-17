@@ -16,4 +16,7 @@ language_error_t assemble_new_var(language_t *language, language_node_t *node);
 language_error_t assemble_new_func(language_t *language, language_node_t *node);
 language_error_t assemble_assignment(language_t *language, language_node_t *node);
 
+language_error_t assemble_in(language_t *language, language_node_t *node);
+language_error_t assemble_out(language_t *language, language_node_t *node);
+
 #endif

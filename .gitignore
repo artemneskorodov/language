@@ -1,7 +1,0 @@
-backend/bin/
-frontend/bin/
-common/bin/
-logs/
-*.out
-*.test
-.vscode/

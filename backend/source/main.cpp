@@ -26,6 +26,7 @@ int main(int argc, const char *argv[]) {
         return main_exit_failure(&language);
     }
 
+    fprintf(stderr, "success");
     return EXIT_SUCCESS;
 }
 
