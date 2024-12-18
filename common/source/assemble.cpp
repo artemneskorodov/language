@@ -185,12 +185,12 @@ language_error_t assemble_comparison(language_t *language, language_node_t *node
     //--------------------------------------------------------------------------------//
     size_t num = language->backend_info.used_labels++;
     const char *asm_cmd = KeyWords[node->value.opcode].assembler_command;
-    _CMD_WRITE("%s _cmp_f_" SZ_SP ":", asm_cmd, num);
-    _CMD_WRITE("push 1"                            );
-    _CMD_WRITE("jmp _cmp_f_end_" SZ_SP ":\r\n", num);
-    _CMD_WRITE("_cmp_f_" SZ_SP ":", num            );
+    _CMD_WRITE("%s _cmp_t_" SZ_SP ":", asm_cmd, num);
     _CMD_WRITE("push 0"                            );
-    _CMD_WRITE("_cmp_f_end_" SZ_SP ":\r\n", num    );
+    _CMD_WRITE("jmp _cmp_t_end_" SZ_SP ":\r\n", num);
+    _CMD_WRITE("_cmp_t_" SZ_SP ":", num            );
+    _CMD_WRITE("push 1"                            );
+    _CMD_WRITE("_cmp_t_end_" SZ_SP ":\r\n", num    );
     //--------------------------------------------------------------------------------//
     return LANGUAGE_SUCCESS;
 }
@@ -418,8 +418,8 @@ language_error_t assemble_new_func(language_t *language, language_node_t *node) 
     language->backend_info.used_locals = 0;
 
     language->backend_info.scope++;
-    _RETURN_IF_ERROR(compile_subtree(language, node->right->left ));
     _RETURN_IF_ERROR(compile_subtree(language, node->right->right));
+    _RETURN_IF_ERROR(compile_subtree(language, node->right->left ));
     language->backend_info.scope--;
 
     //--------------------------------------------------------------------------------//

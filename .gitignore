@@ -1,0 +1,7 @@
+.vscode/
+*.out
+frontend/bin/
+frontstart/bin/
+backend/bin/
+common/bin/
+logs/

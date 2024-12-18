@@ -116,5 +116,6 @@ const char *get_node_color(language_t *language, language_node_t *node) {
             return node_color_operation;
         }
     }
+    fprintf(stderr, "%d", node->type);
     return NULL;
 }

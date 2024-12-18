@@ -21,13 +21,13 @@ factorial:
         pop [0]    ;'counter'
         push [bx + 0]
         push 0
-        ja _cmp_f_0:
-        push 1
-        jmp _cmp_f_end_0:
-
-        _cmp_f_0:
+        ja _cmp_t_0:
         push 0
-        _cmp_f_end_0:
+        jmp _cmp_t_end_0:
+
+        _cmp_t_0:
+        push 1
+        _cmp_t_end_0:
 
         push 0
         je skip_if_1:

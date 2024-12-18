@@ -230,7 +230,7 @@ language_error_t get_new_function(language_t *language, language_node_t **output
     language->frontend_info.used_locals = 0;
     //--------------------------------------------------------------------------------//
     size_t params_number = 0;
-    _RETURN_IF_ERROR(get_new_function_params(language, &ident->left, &params_number));
+    _RETURN_IF_ERROR(get_new_function_params(language, &ident->right, &params_number));
     language->name_table.identifiers[ident->value.identifier].parameters_number = params_number;//TODO move to function
     //--------------------------------------------------------------------------------//
     if(!is_on_operation(language, OPERATION_CLOSE_BRACKET)) {
@@ -240,7 +240,7 @@ language_error_t get_new_function(language_t *language, language_node_t **output
     }
     move_next_token(language);
     //--------------------------------------------------------------------------------//
-    _RETURN_IF_ERROR(get_body(language, &(*output)->right->right));
+    _RETURN_IF_ERROR(get_body(language, &ident->left));
     //--------------------------------------------------------------------------------//
     _RETURN_IF_ERROR(variables_stack_remove(language,
                                             language->frontend_info.used_locals));
@@ -536,11 +536,11 @@ language_error_t get_function_call_params(language_t       *language,
                                 identifier->parameters_number);
         }
         //----------------------------------------------------------------------------//
-        current_node->right = token_position(language);
-        current_node = current_node->right;
         if(i + 1 != identifier->parameters_number) {
+            current_node->right = token_position(language);
             move_next_token(language);
         }
+        current_node = current_node->right;
         //----------------------------------------------------------------------------//
     }
     //--------------------------------------------------------------------------------//
