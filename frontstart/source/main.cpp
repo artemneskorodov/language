@@ -9,6 +9,11 @@
 static int main_exit_failure(language_t *ctx);
 
 int main(int argc, const char *argv[]) {
+    color_printf(MAGENTA_TEXT, BOLD_TEXT, DEFAULT_BACKGROUND,
+                 " _____________________________________ \n"
+                 "|                                     |\n"
+                 "|       Parsing tree to source        |\n"
+                 "|_____________________________________|\n");
     if(verify_keywords() != LANGUAGE_SUCCESS) {
         return EXIT_FAILURE;
     }

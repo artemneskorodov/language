@@ -16,6 +16,11 @@ static int main_exit_failure(language_t *language);
 //====================================================================================//
 
 int main(int argc, const char *argv[]) {
+    color_printf(MAGENTA_TEXT, BOLD_TEXT, DEFAULT_BACKGROUND,
+                 " _____________________________________ \n"
+                 "|                                     |\n"
+                 "|     Parsing source code to tree     |\n"
+                 "|_____________________________________|\n");
     if(verify_keywords() != LANGUAGE_SUCCESS) {
         return EXIT_FAILURE;
     }
