@@ -7,6 +7,7 @@
 #include "frontend.h"
 #include "lang_dump.h"
 #include "syntax_parser.h"
+#include "colors.h"
 
 //====================================================================================//
 
@@ -23,26 +24,30 @@ int main(int argc, const char *argv[]) {
     if(frontend_ctor(&language, argc, argv) != LANGUAGE_SUCCESS) {
         return main_exit_failure(&language);
     }
-    fprintf(stderr, "~1\n");
+    color_printf(YELLOW_TEXT, BOLD_TEXT, DEFAULT_BACKGROUND,
+                 "Successfully initialized context\n");
     //--------------------------------------------------------------------------------//
     if(parse_tokens(&language) != LANGUAGE_SUCCESS) {
         return main_exit_failure(&language);
     }
-    fprintf(stderr, "~2\n");
+    color_printf(YELLOW_TEXT, BOLD_TEXT, DEFAULT_BACKGROUND,
+                 "Successfully parsed tokens\n");
     //--------------------------------------------------------------------------------//
     if(parse_syntax(&language) != LANGUAGE_SUCCESS) {
         return main_exit_failure(&language);
     }
-    fprintf(stderr, "~3\n");
+    color_printf(YELLOW_TEXT, BOLD_TEXT, DEFAULT_BACKGROUND,
+                 "Successfully parsed syntax\n");
     //--------------------------------------------------------------------------------//
-    dump_tree(&language, "huy");
+    dump_tree(&language, "frontend result");
     //--------------------------------------------------------------------------------//
     if(write_tree(&language) != LANGUAGE_SUCCESS) {
         return main_exit_failure(&language);
     }
+    color_printf(GREEN_TEXT, BOLD_TEXT, DEFAULT_BACKGROUND,
+                 "Successfully wrote tree to file\n");
     //--------------------------------------------------------------------------------//
     frontend_dtor(&language);
-    fprintf(stderr, "END success\n");
     return EXIT_SUCCESS;
 }
 

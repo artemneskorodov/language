@@ -120,8 +120,8 @@ language_error_t compile_function_call(language_t *language, language_node_t *ro
     _CMD_WRITE("pop bx\r\n"                    );
     //--------------------------------------------------------------------------------//
     _RETURN_IF_ERROR(write_command(language, ";pushing arguments to function"));
-    for(size_t i = 0; i < identifier->parameters_number; i++) {
-        _RETURN_IF_ERROR(write_command(language, "pop [bx + " SZ_SP "]", i   ));
+    for(size_t i = identifier->parameters_number; i > 0; i--) {
+        _RETURN_IF_ERROR(write_command(language, "pop [bx + " SZ_SP "]", i - 1));
     }
     //--------------------------------------------------------------------------------//
     _CMD_WRITE("call %.*s:",
@@ -287,19 +287,19 @@ language_error_t assemble_while(language_t *language, language_node_t *node) {
     if(!is_node_oper_eq(node, OPERATION_WHILE)) {
         return LANGUAGE_UNEXPECTED_OPER;
     }
-    _RETURN_IF_ERROR(compile_subtree(language, node->left));
     //--------------------------------------------------------------------------------//
     size_t num = language->backend_info.used_labels++;
-    _CMD_WRITE("while_start_" SZ_SP ":", num    );
+    _CMD_WRITE("_while_start_" SZ_SP ":", num    );
+    _RETURN_IF_ERROR(compile_subtree(language, node->left));
     _CMD_WRITE("push 0"                         );
-    _CMD_WRITE("je skip_while_" SZ_SP ":", num  );
+    _CMD_WRITE("je _skip_while_" SZ_SP ":", num  );
     //--------------------------------------------------------------------------------//
     language->backend_info.scope++;
     _RETURN_IF_ERROR(compile_subtree(language, node->right));
     language->backend_info.scope--;
     //--------------------------------------------------------------------------------//
-    _CMD_WRITE("jmp while_start_" SZ_SP ":", num);
-    _CMD_WRITE("skip_if_" SZ_SP ":", num        );
+    _CMD_WRITE("jmp _while_start_" SZ_SP ":", num);
+    _CMD_WRITE("_skip_while_" SZ_SP ":", num        );
     return LANGUAGE_SUCCESS;
 }
 

@@ -231,7 +231,7 @@ language_error_t get_new_function(language_t *language, language_node_t **output
     //--------------------------------------------------------------------------------//
     size_t params_number = 0;
     _RETURN_IF_ERROR(get_new_function_params(language, &ident->right, &params_number));
-    language->name_table.identifiers[ident->value.identifier].parameters_number = params_number;//TODO move to function
+    language->name_table.identifiers[ident->value.identifier].parameters_number = params_number;
     //--------------------------------------------------------------------------------//
     if(!is_on_operation(language, OPERATION_CLOSE_BRACKET)) {
         return syntax_error(language,
@@ -457,7 +457,7 @@ language_error_t get_assignment(language_t *language, language_node_t **output) 
     move_next_token(language);
     //--------------------------------------------------------------------------------//
     if(!is_on_operation(language, OPERATION_ASSIGNMENT)) {
-        return syntax_error(language, "Expected to see asignment here.\n");
+        return syntax_error(language, "Expected to see assignment here.\n");
     }
     *output = token_position(language);
     move_next_token(language);
@@ -660,8 +660,8 @@ language_error_t get_element(language_t *language, language_node_t **output) {
         if(!is_on_operation(language, OPERATION_CLOSE_BRACKET)) {
             return syntax_error(language, "Unclosed bracket.\n");
         }
-        //----------------------------------------------------------------------------//
         move_next_token(language);
+        //----------------------------------------------------------------------------//
         return LANGUAGE_SUCCESS;
     }
     //--------------------------------------------------------------------------------//
@@ -788,7 +788,7 @@ language_error_t get_out(language_t *language, language_node_t **output) {
     //--------------------------------------------------------------------------------//
     if(!is_on_operation(language, OPERATION_CLOSE_BRACKET)) {
         return syntax_error(language,
-                            "Expected to see ( after out command.\n");
+                            "Expected to see ) after out command.\n");
     }
     _RETURN_IF_ERROR(move_next_token(language));
     //--------------------------------------------------------------------------------//

@@ -60,7 +60,7 @@ language_error_t frontend_ctor(language_t *language, int argc, const char *argv[
     }
     fclose(source);
     //--------------------------------------------------------------------------------//
-    _RETURN_IF_ERROR(nodes_storage_ctor(language, language->input_size + 1));
+    _RETURN_IF_ERROR(nodes_storage_ctor(language, language->input_size * 2));
     _RETURN_IF_ERROR(name_table_ctor(language, language->input_size));
     _RETURN_IF_ERROR(used_names_ctor(language, language->input_size));
     //--------------------------------------------------------------------------------//
@@ -76,6 +76,7 @@ language_error_t frontend_ctor(language_t *language, int argc, const char *argv[
 language_error_t parse_tokens(language_t *language) {
     _C_ASSERT(language != NULL, return LANGUAGE_CTX_NULL);
     //--------------------------------------------------------------------------------//
+    _RETURN_IF_ERROR(skip_spaces(language));
     while(current_symbol(language) != '\0') {
         //----------------------------------------------------------------------------//
         if(isdigit(current_symbol(language))) {
@@ -117,7 +118,7 @@ language_error_t read_word(language_t *language) {
     bool found = false;
     //--------------------------------------------------------------------------------//
     for(size_t elem = 1; elem < (size_t)OPERATION_PROGRAM_END; elem++) {
-        if(strncmp(KeyWords[elem].name, input_position(language), length) == 0) {
+        if(strncmp(KeyWords[elem].name, input_position(language), KeyWords[elem].length) == 0) {
             //------------------------------------------------------------------------//
             _RETURN_IF_ERROR(nodes_storage_add(language,
                                                NODE_TYPE_OPERATION,

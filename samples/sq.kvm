@@ -1,0 +1,24 @@
+
+ebal solve(blyadskiy a, blyadskiy b, blyadskiy c) {
+    blyadskiy diskriminant = b^2 - 4 * a * c;
+    reskni(diskriminant > 0) {
+        blyadskiy koren = diskriminant^0.5;
+        pokazhi(((0 - 1) * b - koren) / (2 * a));
+        pokazhi(((0 - 1) * b + koren) / (2 * a));
+        otday 2;
+    }
+    reskni(diskriminant < 0) {
+        otday 0;
+    }
+    pokazhi((0 - 1) * b / (2 * a));
+    otday 1;
+}
+
+ebal main () {
+    blyadskiy a = vozmi;
+    blyadskiy b = vozmi;
+    blyadskiy c = vozmi;
+
+    blyadskiy num = solve(a, b, c);
+    otday num;
+}
