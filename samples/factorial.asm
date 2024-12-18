@@ -11,7 +11,7 @@ pop [0]    ;'counter'
 	out
 	hlt
 
-;function compilation
+;global variables setting
 ;compiling factorial
 jmp skip_factorial:
 factorial:

@@ -1,7 +1,11 @@
 #ifndef LANGUAGE_H
 #define LANGUAGE_H
 
+//===========================================================================//
+
 #include <stdio.h>
+
+//===========================================================================//
 
 enum language_error_t {
     LANGUAGE_SUCCESS                 = 0 ,
@@ -38,13 +42,18 @@ enum language_error_t {
     LANGUAGE_UNEXPECTED_OPER         = 30,
     LANGUAGE_NAME_NULL               = 31,
     LANGUAGE_SOURCE_WRITING_ERROR    = 32,
+    LANGUAGE_ROOT_NULL               = 33,
 };
+
+//===========================================================================//
 
 enum node_type_t {
     NODE_TYPE_OPERATION              = 1,
     NODE_TYPE_NUMBER                 = 2,
     NODE_TYPE_IDENTIFIER             = 3,
 };
+
+//===========================================================================//
 
 enum operation_t {
     OPERATION_UNKNOWN                = 0,
@@ -71,113 +80,140 @@ enum operation_t {
     OPERATION_NEW_FUNC               = 21,
     OPERATION_IN                     = 22,
     OPERATION_OUT                    = 23,
-    //TODO
+    //add here
     OPERATION_PROGRAM_END            = 24,
 };
 
+//===========================================================================//
+
 union value_t {
-    double      number;
-    size_t      identifier;
-    operation_t opcode;
+    double                           number;
+    size_t                           identifier;
+    operation_t                      opcode;
 };
+
+//===========================================================================//
 
 struct source_info_t {
-    const char *name;
-    size_t length;
-    size_t line;
+    const char                      *name;
+    size_t                           length;
+    size_t                           line;
 };
+
+//===========================================================================//
 
 struct language_node_t {
-    source_info_t       source_info;
-    node_type_t         type;
-    value_t             value;
-    language_node_t    *left;
-    language_node_t    *right;
+    source_info_t                    source_info;
+    node_type_t                      type;
+    value_t                          value;
+    language_node_t                 *left;
+    language_node_t                 *right;
 };
+
+//===========================================================================//
 
 enum identifier_type_t {
-    IDENTIFIER_FUNCTION = 1,
-    IDENTIFIER_GLOBAL_VAR = 2,
-    IDENTIFIER_LOCAL_VAR = 3,
+    IDENTIFIER_FUNCTION              = 1,
+    IDENTIFIER_GLOBAL_VAR            = 2,
+    IDENTIFIER_LOCAL_VAR             = 3,
 };
+
+//===========================================================================//
 
 struct identifier_t {
-    const char         *name;
-    size_t              length;
-    identifier_type_t   type;
-    size_t              parameters_number;
-    bool                is_defined;
-    size_t              memory_addr;
+    const char                      *name;
+    size_t                           length;
+    identifier_type_t                type;
+    size_t                           parameters_number;
+    bool                             is_defined;
+    size_t                           memory_addr;
 };
+
+//===========================================================================//
 
 struct name_t {
-    size_t              length;
-    const char         *name;
+    size_t                           length;
+    const char                      *name;
 };
+
+//===========================================================================//
 
 struct name_table_t {
-    identifier_t       *identifiers;
-    size_t              size;
-    size_t              capacity;
-    size_t             *stack;
-    size_t              stack_size;
-    name_t             *used_names;
-    size_t              used_names_size;
+    identifier_t                    *identifiers;
+    size_t                           size;
+    size_t                           capacity;
+    size_t                          *stack;
+    size_t                           stack_size;
+    name_t                          *used_names;
+    size_t                           used_names_size;
 };
+
+//===========================================================================//
 
 struct nodes_storage_t {
-    language_node_t    *nodes;
-    size_t              size;
-    size_t              capacity;
+    language_node_t                 *nodes;
+    size_t                           size;
+    size_t                           capacity;
 };
+
+//===========================================================================//
 
 struct frontend_info_t {
-    language_node_t    *position;
-    size_t              current_line;
-    size_t              used_locals;
+    language_node_t                 *position;
+    size_t                           current_line;
+    size_t                           used_locals;
 };
+
+//===========================================================================//
 
 struct backend_info_t {
-    size_t              used_globals;
-    size_t              used_labels;
-    size_t              used_locals;
-    int                 scope;
-    FILE               *output;
+    size_t                           used_globals;
+    size_t                           used_labels;
+    size_t                           used_locals;
+    int                              scope;
+    FILE                            *output;
 };
+
+//===========================================================================//
 
 struct frontstart_info_t {
-    FILE               *output;
-    size_t              depth;
+    FILE                            *output;
+    int                              depth;
 };
+
+//===========================================================================//
 
 struct dump_info_t {
-    FILE               *general_dump;
-    size_t              dumps_number;
-    const char         *filename;
-    size_t              current_scope;
+    FILE                            *general_dump;
+    size_t                           dumps_number;
+    const char                      *filename;
+    size_t                           current_scope;
 };
+
+//===========================================================================//
 
 struct language_t {
-    dump_info_t         dump_info;
-    name_table_t        name_table;
-    nodes_storage_t     nodes;
-    language_node_t    *root;
-
-    char               *input;
-    size_t              input_size;
-    const char         *input_position;
-
-    frontend_info_t     frontend_info;
-    backend_info_t      backend_info;
-    frontstart_info_t   frontstart_info;
-
-    const char         *input_file;
-    const char         *output_file;
+    dump_info_t                      dump_info;
+    name_table_t                     name_table;
+    nodes_storage_t                  nodes;
+    language_node_t                 *root;
+    char                            *input;
+    size_t                           input_size;
+    const char                      *input_position;
+    frontend_info_t                  frontend_info;
+    backend_info_t                   backend_info;
+    frontstart_info_t                frontstart_info;
+    const char                      *input_file;
+    const char                      *output_file;
 };
+
+//===========================================================================//
 
 #define NUMBER(_value) (value_t){.number     = (_value)}
 #define OPCODE(_value) (value_t){.opcode     = (_value)}
 #define IDENT(_value)  (value_t){.identifier = (_value)}
+
+//===========================================================================//
 
 language_error_t nodes_storage_ctor (language_t       *language,
                                      size_t            capacity);
@@ -198,26 +234,33 @@ language_error_t parse_flags        (language_t       *language,
 language_error_t read_tree          (language_t       *language);
 
 language_error_t write_tree         (language_t       *language);
-language_error_t verify_keywords(void);
+
+language_error_t verify_keywords    (void);
+
+//===========================================================================//
 
 #include "assemble.h"
 #include "to_source.h"
 
+//===========================================================================//
+
 struct keyword_t {
-    const char *name;
-    size_t length;
-    operation_t code;
-    language_error_t (*assemble)(language_t *, language_node_t *);
-    const char *assembler_command;
-    bool is_expression_element;
-    language_error_t (*to_source)(language_t *, language_node_t *);
-    size_t priority;
+    const char                      *name;
+    size_t                           length;
+    operation_t                      code;
+    language_error_t               (*assemble)(language_t *, language_node_t *);
+    const char                      *assembler_command;
+    bool                             is_expression_element;
+    language_error_t               (*to_source)(language_t *, language_node_t *);
+    size_t                           priority;
 };
+
+//===========================================================================//
 
 #define STR_LEN(_string) (_string), sizeof(_string) - 1
 
 static const keyword_t KeyWords[] = {
-    {/*THIS FIELD MUST BE HERE AS IT IS FOR UNKNOWN COMMAND*/},
+    {/*______________________________THIS_FIELD_MUST_BE_HERE_AS_IT_IS_FOR_UNKNOWN_COMMAND______________________________*/},
     {STR_LEN("+"        ), OPERATION_ADD          , assemble_two_args        , "add", false, to_source_math_op        , 3},
     {STR_LEN("-"        ), OPERATION_SUB          , assemble_two_args        , "sub", false, to_source_math_op        , 3},
     {STR_LEN("*"        ), OPERATION_MUL          , assemble_two_args        , "mul", false, to_source_math_op        , 2},
@@ -245,6 +288,10 @@ static const keyword_t KeyWords[] = {
     {NULL, 0             , OPERATION_PROGRAM_END    , NULL                      , NULL, false},
 };
 
+#undef STR_LEN
+
+//===========================================================================//
+
 #define _RETURN_IF_ERROR(...) {                     \
     language_error_t _error_code = (__VA_ARGS__);   \
     if(_error_code != LANGUAGE_SUCCESS) {           \
@@ -252,6 +299,10 @@ static const keyword_t KeyWords[] = {
     }                                               \
 }                                                   \
 
+//===========================================================================//
+
 static const size_t PoisonIndex = (size_t)(-1);
+
+//===========================================================================//
 
 #endif
