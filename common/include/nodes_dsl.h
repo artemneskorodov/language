@@ -13,7 +13,7 @@ bool is_node_type_eq    (language_node_t   *node,
 bool is_node_oper_eq    (language_node_t   *node,
                          operation_t        opcode);
 
-bool is_ident_type      (language_t        *language,
+bool is_ident_type      (language_t        *ctx,
                          language_node_t   *node,
                          identifier_type_t  type);
 

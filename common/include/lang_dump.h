@@ -11,13 +11,13 @@
 
 //===========================================================================//
 
-language_error_t dump_ctor  (language_t    *language,
+language_error_t dump_ctor  (language_t    *ctx,
                              const char    *filename);
 
-language_error_t dump_tree  (language_t    *language,
+language_error_t dump_tree  (language_t    *ctx,
                              const char    *format, ...);
 
-language_error_t dump_dtor  (language_t    *language);
+language_error_t dump_dtor  (language_t    *ctx);
 
 //===========================================================================//
 

@@ -43,6 +43,8 @@ enum language_error_t {
     LANGUAGE_NAME_NULL               = 31,
     LANGUAGE_SOURCE_WRITING_ERROR    = 32,
     LANGUAGE_ROOT_NULL               = 33,
+    LANGUAGE_BROKEN_NAME_TABLE_ELEM  = 34,
+    LANGUAGE_RULES_NULL              = 35,
 };
 
 //===========================================================================//
@@ -215,25 +217,25 @@ struct language_t {
 
 //===========================================================================//
 
-language_error_t nodes_storage_ctor (language_t       *language,
+language_error_t nodes_storage_ctor (language_t       *ctx,
                                      size_t            capacity);
 
-language_error_t nodes_storage_add  (language_t       *language,
+language_error_t nodes_storage_add  (language_t       *ctx,
                                      node_type_t       type,
                                      value_t           value,
                                      const char       *name,
                                      size_t            length,
                                      language_node_t **output);
 
-language_error_t nodes_storage_dtor (language_t       *language);
+language_error_t nodes_storage_dtor (language_t       *ctx);
 
-language_error_t parse_flags        (language_t       *language,
+language_error_t parse_flags        (language_t       *ctx,
                                      int               argc,
                                      const char       *argv[]);
 
-language_error_t read_tree          (language_t       *language);
+language_error_t read_tree          (language_t       *ctx);
 
-language_error_t write_tree         (language_t       *language);
+language_error_t write_tree         (language_t       *ctx);
 
 language_error_t verify_keywords    (void);
 

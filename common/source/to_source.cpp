@@ -31,7 +31,7 @@ static language_error_t write_source        (language_t        *ctx,
 language_error_t to_source_subtree(language_t *ctx, language_node_t *node) {
     _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
     _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     switch(node->type) {
         case NODE_TYPE_IDENTIFIER: {
             _RETURN_IF_ERROR(to_source_ident(ctx, node));
@@ -54,7 +54,7 @@ language_error_t to_source_subtree(language_t *ctx, language_node_t *node) {
 language_error_t to_source_ident(language_t *ctx, language_node_t *node) {
     _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
     _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     identifier_t *ident = ctx->name_table.identifiers + node->value.identifier;
     switch(ident->type) {
         case IDENTIFIER_FUNCTION: {
@@ -88,11 +88,11 @@ language_error_t to_source_ident(language_t *ctx, language_node_t *node) {
 language_error_t to_source_math_op(language_t *ctx, language_node_t *node) {
     _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
     _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     if(is_node_oper_eq(node, OPERATION_ASSIGNMENT)) {
         _RETURN_IF_ERROR(write_source(ctx, "%*s", ctx->frontstart_info.depth * 8, ""));
     }
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     bool branches_left = is_bigger_priority(node, node->left);
     if(branches_left) {
         _WRITE_SRC("(");
@@ -101,9 +101,9 @@ language_error_t to_source_math_op(language_t *ctx, language_node_t *node) {
     if(branches_left) {
         _WRITE_SRC(")");
     }
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     _WRITE_SRC(" %s ", KeyWords[node->value.opcode].name);
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     bool branches_right = is_bigger_priority(node, node->right);
     if(branches_right) {
         _WRITE_SRC("(");
@@ -112,7 +112,7 @@ language_error_t to_source_math_op(language_t *ctx, language_node_t *node) {
     if(branches_right) {
         _WRITE_SRC(")");
     }
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     if(is_node_oper_eq(node, OPERATION_ASSIGNMENT)) {
         _WRITE_SRC(";");
     }
@@ -124,7 +124,7 @@ language_error_t to_source_math_op(language_t *ctx, language_node_t *node) {
 language_error_t to_source_math_func(language_t *ctx, language_node_t *node) {
     _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
     _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     _WRITE_SRC("%s", KeyWords[node->value.opcode].name);
     bool branches = true;
     if(is_leaf(node->right)) {
@@ -146,7 +146,7 @@ language_error_t to_source_math_func(language_t *ctx, language_node_t *node) {
 language_error_t to_source_statements_line(language_t *ctx, language_node_t *node) {
     _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
     _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     ctx->frontstart_info.depth++;
     while(node != NULL) {
         _RETURN_IF_ERROR(to_source_subtree(ctx, node->left));
@@ -162,7 +162,7 @@ language_error_t to_source_statements_line(language_t *ctx, language_node_t *nod
 language_error_t to_source_if(language_t *ctx, language_node_t *node) {
     _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
     _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     _WRITE_SRC("%*s%s(",
                ctx->frontstart_info.depth * 8, "",
                KeyWords[OPERATION_IF].name);
@@ -181,7 +181,7 @@ language_error_t to_source_if(language_t *ctx, language_node_t *node) {
 language_error_t to_source_while(language_t *ctx, language_node_t *node) {
     _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
     _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     _WRITE_SRC("%*s%s(",
                ctx->frontstart_info.depth * 8, "",
                KeyWords[OPERATION_WHILE].name);
@@ -200,7 +200,7 @@ language_error_t to_source_while(language_t *ctx, language_node_t *node) {
 language_error_t to_source_return(language_t *ctx, language_node_t *node) {
     _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
     _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     _WRITE_SRC("%*s%s ",
                ctx->frontstart_info.depth * 8, "",
                KeyWords[OPERATION_RETURN].name);
@@ -215,7 +215,7 @@ language_error_t to_source_return(language_t *ctx, language_node_t *node) {
 language_error_t to_source_params_line(language_t *ctx, language_node_t *node) {
     _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
     _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     while(node != NULL) {
         if(node->left != NULL) {
             _RETURN_IF_ERROR(to_source_subtree(ctx, node->left));
@@ -233,7 +233,7 @@ language_error_t to_source_params_line(language_t *ctx, language_node_t *node) {
 language_error_t to_source_new_var(language_t *ctx, language_node_t *node) {
     _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
     _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     _RETURN_IF_ERROR(write_source(ctx, "%*s%s ",
                                   ctx->frontstart_info.depth * 8, "",
                                   KeyWords[OPERATION_NEW_VAR].name));
@@ -249,7 +249,7 @@ language_error_t to_source_new_var(language_t *ctx, language_node_t *node) {
 language_error_t to_source_new_func(language_t *ctx, language_node_t *node) {
     _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
     _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     _WRITE_SRC("%s ", KeyWords[OPERATION_NEW_FUNC].name);
     _RETURN_IF_ERROR(to_source_subtree(ctx, node->right));
     return LANGUAGE_SUCCESS;
@@ -259,7 +259,7 @@ language_error_t to_source_new_func(language_t *ctx, language_node_t *node) {
 
 language_error_t to_source_in(language_t *ctx, language_node_t */*node*/) {
     _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     _WRITE_SRC("%s", KeyWords[OPERATION_IN].name);
     return LANGUAGE_SUCCESS;
 }
@@ -269,7 +269,7 @@ language_error_t to_source_in(language_t *ctx, language_node_t */*node*/) {
 language_error_t to_source_out(language_t *ctx, language_node_t *node) {
     _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
     _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     _WRITE_SRC("%*s%s(",
                ctx->frontstart_info.depth * 8, "",
                KeyWords[OPERATION_OUT].name);
@@ -283,11 +283,11 @@ language_error_t to_source_out(language_t *ctx, language_node_t *node) {
 bool is_bigger_priority(language_node_t *node, language_node_t *child) {
     _C_ASSERT(node  != NULL, return LANGUAGE_NODE_NULL);
     _C_ASSERT(child != NULL, return LANGUAGE_NODE_NULL);
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     if(child->type == NODE_TYPE_IDENTIFIER || child->type == NODE_TYPE_NUMBER) {
         return false;
     }
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     if(node->type == NODE_TYPE_OPERATION && child->type == NODE_TYPE_OPERATION) {
         size_t priority_node  = KeyWords[node->value.opcode].priority;
         size_t priority_child = KeyWords[node->value.opcode].priority;
@@ -296,7 +296,7 @@ bool is_bigger_priority(language_node_t *node, language_node_t *child) {
             return false;
         }
     }
-    //--------------------------------------------------------------------------------//
+    //-----------------------------------------------------------------------//
     return true;
 }
 
@@ -312,6 +312,10 @@ bool is_leaf(language_node_t *node) {
 //===========================================================================//
 
 language_error_t write_source(language_t *ctx, const char *format, ...) {
+    _C_ASSERT(ctx    != NULL, return LANGUAGE_CTX_NULL          );
+    _C_ASSERT(format != NULL, return LANGUAGE_STRING_FORMAT_NULL);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     va_list args;
     va_start(args, format);
     if(vfprintf(ctx->frontstart_info.output, format, args) < 0) {
@@ -319,6 +323,7 @@ language_error_t write_source(language_t *ctx, const char *format, ...) {
     }
     fflush(ctx->frontstart_info.output);
     va_end(args);
+#pragma clang diagnostic pop
     return LANGUAGE_SUCCESS;
 }
 
