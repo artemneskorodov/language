@@ -17,6 +17,7 @@ factorial:
         push [bx + 0] ;nomer
         push 0
         ja _cmp_t_1:
+
         push 0
         jmp _cmp_t_end_1:
 
@@ -51,7 +52,7 @@ main:
 
         ;function parameters
                 push [bx + 0] ;nomer
-        
+
 
         ;incrementing bx
         push bx

@@ -341,9 +341,9 @@ language_error_t read_subtree(language_t *ctx, language_node_t **output) {
     _C_ASSERT(ctx    != NULL, return LANGUAGE_CTX_NULL   );
     _C_ASSERT(output != NULL, return LANGUAGE_NULL_OUTPUT);
     //-----------------------------------------------------------------------//
-    node_type_t type      = (node_type_t)0;
-    value_t value         = {};
-    language_node_t *node = NULL;
+    node_type_t      type  = (node_type_t)0;
+    value_t          value = {};
+    language_node_t *node  = NULL;
 
     file_elem_t node_elems[] = {
         {'{', NULL  , check_char    },

@@ -185,6 +185,12 @@ struct frontstart_info_t {
 
 //===========================================================================//
 
+struct middleend_info_t {
+    size_t                           changes_counter;
+};
+
+//===========================================================================//
+
 struct dump_info_t {
     FILE                            *general_dump;
     size_t                           dumps_number;
@@ -205,6 +211,7 @@ struct language_t {
     frontend_info_t                  frontend_info;
     backend_info_t                   backend_info;
     frontstart_info_t                frontstart_info;
+    middleend_info_t                 middleend_info;
     const char                      *input_file;
     const char                      *output_file;
 };
@@ -243,6 +250,7 @@ language_error_t verify_keywords    (void);
 
 #include "assemble.h"
 #include "to_source.h"
+#include "simplify_rules.h"
 
 //===========================================================================//
 
@@ -255,6 +263,7 @@ struct keyword_t {
     bool                             is_expression_element;
     language_error_t               (*to_source)(language_t *, language_node_t *);
     size_t                           priority;
+    language_error_t               (*simplifier)(language_t *,language_node_t **);
 };
 
 //===========================================================================//
@@ -263,29 +272,29 @@ struct keyword_t {
 
 static const keyword_t KeyWords[] = {
     {/*______________________________THIS_FIELD_MUST_BE_HERE_AS_IT_IS_FOR_UNKNOWN_COMMAND______________________________*/},
-    {STR_LEN("+"        ), OPERATION_ADD          , assemble_two_args        , "add", false, to_source_math_op        , 3},
-    {STR_LEN("-"        ), OPERATION_SUB          , assemble_two_args        , "sub", false, to_source_math_op        , 3},
-    {STR_LEN("*"        ), OPERATION_MUL          , assemble_two_args        , "mul", false, to_source_math_op        , 2},
-    {STR_LEN("/"        ), OPERATION_DIV          , assemble_two_args        , "div", false, to_source_math_op        , 2},
-    {STR_LEN("cos"      ), OPERATION_COS          , assemble_one_arg         , "cos", true , to_source_math_func      , 0},
-    {STR_LEN("sin"      ), OPERATION_SIN          , assemble_one_arg         , "sin", true , to_source_math_func      , 0},
-    {STR_LEN("^"        ), OPERATION_POW          , assemble_two_args        , "pow", false, to_source_math_op        , 1},
-    {STR_LEN(">"        ), OPERATION_BIGGER       , assemble_comparison      , "ja" , false, to_source_math_op        , 4},
-    {STR_LEN("<"        ), OPERATION_SMALLER      , assemble_comparison      , "jb" , false, to_source_math_op        , 4},
-    {STR_LEN("="        ), OPERATION_ASSIGNMENT   , assemble_assignment      , NULL , false, to_source_math_op        , 4},
-    {STR_LEN("("        ), OPERATION_OPEN_BRACKET , NULL                     , NULL , false, NULL                     , 0},
-    {STR_LEN(")"        ), OPERATION_CLOSE_BRACKET, NULL                     , NULL , false, NULL                     , 0},
-    {STR_LEN("{"        ), OPERATION_BODY_START   , NULL                     , NULL , false, NULL                     , 0},
-    {STR_LEN("}"        ), OPERATION_BODY_END     , NULL                     , NULL , false, NULL                     , 0},
-    {STR_LEN(";"        ), OPERATION_STATEMENT    , assemble_statements_line , NULL , false, to_source_statements_line, 0},
-    {STR_LEN("reskni"   ), OPERATION_IF           , assemble_if              , NULL , false, to_source_if             , 0},
-    {STR_LEN("dohuya"   ), OPERATION_WHILE        , assemble_while           , NULL , false, to_source_while          , 0},
-    {STR_LEN("otday"    ), OPERATION_RETURN       , assemble_return          , NULL , false, to_source_return         , 0},
-    {STR_LEN(","        ), OPERATION_PARAM_LINKER , assemble_params_line     , NULL , false, to_source_params_line    , 0},
-    {STR_LEN("blyadskiy"), OPERATION_NEW_VAR      , assemble_new_var         , NULL , false, to_source_new_var        , 0},
-    {STR_LEN("ebal"     ), OPERATION_NEW_FUNC     , assemble_new_func        , NULL , false, to_source_new_func       , 0},
-    {STR_LEN("vozmi"    ), OPERATION_IN           , assemble_in              , NULL , false, to_source_in             , 0},
-    {STR_LEN("pokazhi"  ), OPERATION_OUT          , assemble_out             , NULL , false, to_source_out            , 0},
+    {STR_LEN("+"        ), OPERATION_ADD          , assemble_two_args        , "add", false, to_source_math_op        , 3, simplify_add},
+    {STR_LEN("-"        ), OPERATION_SUB          , assemble_two_args        , "sub", false, to_source_math_op        , 3, simplify_sub},
+    {STR_LEN("*"        ), OPERATION_MUL          , assemble_two_args        , "mul", false, to_source_math_op        , 2, simplify_mul},
+    {STR_LEN("/"        ), OPERATION_DIV          , assemble_two_args        , "div", false, to_source_math_op        , 2, simplify_div},
+    {STR_LEN("cos"      ), OPERATION_COS          , assemble_one_arg         , "cos", true , to_source_math_func      , 0, NULL        },
+    {STR_LEN("sin"      ), OPERATION_SIN          , assemble_one_arg         , "sin", true , to_source_math_func      , 0, NULL        },
+    {STR_LEN("^"        ), OPERATION_POW          , assemble_two_args        , "pow", false, to_source_math_op        , 1, simplify_pow},
+    {STR_LEN(">"        ), OPERATION_BIGGER       , assemble_comparison      , "ja" , false, to_source_math_op        , 4, NULL        },
+    {STR_LEN("<"        ), OPERATION_SMALLER      , assemble_comparison      , "jb" , false, to_source_math_op        , 4, NULL        },
+    {STR_LEN("="        ), OPERATION_ASSIGNMENT   , assemble_assignment      , NULL , false, to_source_math_op        , 4, NULL        },
+    {STR_LEN("("        ), OPERATION_OPEN_BRACKET , NULL                     , NULL , false, NULL                     , 0, NULL        },
+    {STR_LEN(")"        ), OPERATION_CLOSE_BRACKET, NULL                     , NULL , false, NULL                     , 0, NULL        },
+    {STR_LEN("{"        ), OPERATION_BODY_START   , NULL                     , NULL , false, NULL                     , 0, NULL        },
+    {STR_LEN("}"        ), OPERATION_BODY_END     , NULL                     , NULL , false, NULL                     , 0, NULL        },
+    {STR_LEN(";"        ), OPERATION_STATEMENT    , assemble_statements_line , NULL , false, to_source_statements_line, 0, NULL        },
+    {STR_LEN("reskni"   ), OPERATION_IF           , assemble_if              , NULL , false, to_source_if             , 0, NULL        }, //TODO simplification
+    {STR_LEN("dohuya"   ), OPERATION_WHILE        , assemble_while           , NULL , false, to_source_while          , 0, NULL        },
+    {STR_LEN("otday"    ), OPERATION_RETURN       , assemble_return          , NULL , false, to_source_return         , 0, NULL        },
+    {STR_LEN(","        ), OPERATION_PARAM_LINKER , assemble_params_line     , NULL , false, to_source_params_line    , 0, NULL        },
+    {STR_LEN("blyadskiy"), OPERATION_NEW_VAR      , assemble_new_var         , NULL , false, to_source_new_var        , 0, NULL        },
+    {STR_LEN("ebal"     ), OPERATION_NEW_FUNC     , assemble_new_func        , NULL , false, to_source_new_func       , 0, NULL        },
+    {STR_LEN("vozmi"    ), OPERATION_IN           , assemble_in              , NULL , false, to_source_in             , 0, NULL        },
+    {STR_LEN("pokazhi"  ), OPERATION_OUT          , assemble_out             , NULL , false, to_source_out            , 0, NULL        },
     //TODO
     {NULL, 0             , OPERATION_PROGRAM_END    , NULL                      , NULL, false},
 };

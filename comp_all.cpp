@@ -12,6 +12,8 @@ int main(int argc, const char *argv[]) {
     char command[command_length] = {};
     snprintf(command, command_length, "./frontend.out -i %s.kvm -o %s.tree", argv[1], argv[1]);
     system(command);
+    snprintf(command, command_length, "./middleend.out -i %s.tree -o %s.tree", argv[1], argv[1]);
+    system(command);
     snprintf(command, command_length, "./backend.out -i %s.tree -o %s.asm", argv[1], argv[1]);
     system(command);
     snprintf(command, command_length, "./frontstart.out -i %s.tree -o %s_back.kvm", argv[1], argv[1]);

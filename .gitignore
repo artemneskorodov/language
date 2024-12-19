@@ -5,3 +5,4 @@ frontstart/bin/
 backend/bin/
 common/bin/
 logs/
+middleend/bin

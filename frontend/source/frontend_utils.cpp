@@ -10,46 +10,46 @@
 
 //===========================================================================//
 
-language_error_t move_next_token(language_t *language) {
-    _C_ASSERT(language != NULL, return LANGUAGE_CTX_NULL);
-    language->frontend_info.position++;
+language_error_t move_next_token(language_t *ctx) {
+    _C_ASSERT(ctx != NULL, return LANGUAGE_CTX_NULL);
+    ctx->frontend_info.position++;
     return LANGUAGE_SUCCESS;
 }
 
 //===========================================================================//
 
-language_node_t *token_position(language_t *language) {
-    _C_ASSERT(language != NULL, return NULL);
-    return language->frontend_info.position;
+language_node_t *token_position(language_t *ctx) {
+    _C_ASSERT(ctx != NULL, return NULL);
+    return ctx->frontend_info.position;
 }
 
 //===========================================================================//
 
-language_error_t move_next_symbol(language_t *language) {
-    _C_ASSERT(language                 != NULL, return LANGUAGE_CTX_NULL           );
-    _C_ASSERT(language->input          != NULL, return LANGUAGE_INPUT_NULL         );
-    _C_ASSERT(language->input_position != NULL, return LANGUAGE_INPUT_POSITION_NULL);
+language_error_t move_next_symbol(language_t *ctx) {
+    _C_ASSERT(ctx                 != NULL, return LANGUAGE_CTX_NULL           );
+    _C_ASSERT(ctx->input          != NULL, return LANGUAGE_INPUT_NULL         );
+    _C_ASSERT(ctx->input_position != NULL, return LANGUAGE_INPUT_POSITION_NULL);
     //-----------------------------------------------------------------------//
-    language->input_position++;
+    ctx->input_position++;
     return LANGUAGE_SUCCESS;
 }
 
 //===========================================================================//
 
-char current_symbol(language_t *language) {
-    _C_ASSERT(language                 != NULL, return EOF);
-    _C_ASSERT(language->input          != NULL, return EOF);
-    _C_ASSERT(language->input_position != NULL, return EOF);
-    return *language->input_position;
+char current_symbol(language_t *ctx) {
+    _C_ASSERT(ctx                 != NULL, return EOF);
+    _C_ASSERT(ctx->input          != NULL, return EOF);
+    _C_ASSERT(ctx->input_position != NULL, return EOF);
+    return *ctx->input_position;
 }
 
 //===========================================================================//
 
-const char *input_position(language_t *language) {
-    _C_ASSERT(language                 != NULL, return NULL);
-    _C_ASSERT(language->input          != NULL, return NULL);
-    _C_ASSERT(language->input_position != NULL, return NULL);
-    return language->input_position;
+const char *input_position(language_t *ctx) {
+    _C_ASSERT(ctx                 != NULL, return NULL);
+    _C_ASSERT(ctx->input          != NULL, return NULL);
+    _C_ASSERT(ctx->input_position != NULL, return NULL);
+    return ctx->input_position;
 }
 
 //===========================================================================//
@@ -68,10 +68,10 @@ bool is_on_ident_type(language_t *ctx, identifier_type_t type) {
 
 //===========================================================================//
 
-bool is_on_type(language_t *language, node_type_t type) {
-    _C_ASSERT(language != NULL, return false);
+bool is_on_type(language_t *ctx, node_type_t type) {
+    _C_ASSERT(ctx != NULL, return false);
     //-----------------------------------------------------------------------//
-    if(token_position(language)->type == type) {
+    if(token_position(ctx)->type == type) {
         return true;
     }
     //-----------------------------------------------------------------------//
@@ -80,11 +80,11 @@ bool is_on_type(language_t *language, node_type_t type) {
 
 //===========================================================================//
 
-bool is_on_operation(language_t *language, operation_t opcode) {
-    _C_ASSERT(language != NULL, return false);
+bool is_on_operation(language_t *ctx, operation_t opcode) {
+    _C_ASSERT(ctx != NULL, return false);
     //-----------------------------------------------------------------------//
-    if(language->frontend_info.position->type == NODE_TYPE_OPERATION &&
-       language->frontend_info.position->value.opcode == opcode) {
+    if(ctx->frontend_info.position->type == NODE_TYPE_OPERATION &&
+       ctx->frontend_info.position->value.opcode == opcode) {
         return true;
     }
     //-----------------------------------------------------------------------//
@@ -93,14 +93,14 @@ bool is_on_operation(language_t *language, operation_t opcode) {
 
 //===========================================================================//
 
-language_error_t syntax_error(language_t *language, const char *format, ...) {
-    _C_ASSERT(language != NULL, return LANGUAGE_CTX_NULL          );
-    _C_ASSERT(format   != NULL, return LANGUAGE_STRING_FORMAT_NULL);
+language_error_t syntax_error(language_t *ctx, const char *format, ...) {
+    _C_ASSERT(ctx    != NULL, return LANGUAGE_CTX_NULL          );
+    _C_ASSERT(format != NULL, return LANGUAGE_STRING_FORMAT_NULL);
     //-----------------------------------------------------------------------//
     color_printf(MAGENTA_TEXT, BOLD_TEXT, DEFAULT_BACKGROUND,
                   "%s:%llu",
-                  language->input_file,
-                  token_position(language)->source_info.line);
+                  ctx->input_file,
+                  token_position(ctx)->source_info.line);
     //-----------------------------------------------------------------------//
     color_printf(DEFAULT_TEXT, BOLD_TEXT, DEFAULT_BACKGROUND, " ~ ");
     //-----------------------------------------------------------------------//

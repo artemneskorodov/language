@@ -37,9 +37,7 @@ solve:
                 push 0.5
                 pow
                 pop [bx + 4] ;koren
-                push 0
-                push 1
-                sub
+                push -1
                 push [bx + 1] ;b
                 mul
                 push [bx + 4] ;koren
@@ -49,9 +47,7 @@ solve:
                 mul
                 div
                 out
-                push 0
-                push 1
-                sub
+                push -1
                 push [bx + 1] ;b
                 mul
                 push [bx + 4] ;koren
@@ -81,9 +77,7 @@ solve:
                 pop ax
                 ret
         skip_if_3:
-        push 0
-        push 1
-        sub
+        push -1
         push [bx + 1] ;b
         mul
         push 2
