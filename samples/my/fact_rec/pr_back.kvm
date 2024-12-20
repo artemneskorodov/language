@@ -1,0 +1,19 @@
+blyadskiy counter = 0;
+
+ebal factorial(blyadskiy nomer) {
+        counter = counter + 1;
+        reskni(nomer) {
+                otday nomer * factorial(nomer - 1);
+        }
+        otday 1;
+}
+
+ebal main() {
+        blyadskiy nomer = 0;
+        vozmi(nomer)
+        blyadskiy fact = factorial(nomer);
+        pokazhi(fact);
+        pokazhi(counter);
+        otday fact;
+}
+

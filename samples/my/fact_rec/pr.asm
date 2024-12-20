@@ -1,5 +1,7 @@
+push 0
+pop [0] ;counter
 ;setting bx value to global variables number
-	push 0
+	push 1
 	pop bx
 
 ;calling main
@@ -11,18 +13,22 @@
 ;compiling factorial
 jmp skip_factorial:
 factorial:
-        push [bx + 0] ;n
+        push [0] ;counter
+        push 1
+        add
+        pop [0] ;counter
+        push [bx + 0] ;nomer
         push 0
         je skip_if_0:
-                push [bx + 0] ;n
+                push [bx + 0] ;nomer
                 ;saving BX
                 push bx
 
                 ;function parameters
-                        push [bx + 0] ;n
+                        push [bx + 0] ;nomer
                         push 1
                         sub
-
+                
 
                 ;incrementing bx
                 push bx
@@ -50,16 +56,16 @@ skip_factorial:
 ;compiling main
 jmp skip_main:
 main:
-        push 5
-        pop [bx + 0] ;n
+        push 0
+        pop [bx + 0] ;nomer
         in
-        pop [bx + 0] ;n
+        pop [bx + 0] ;nomer
         ;saving BX
         push bx
 
         ;function parameters
-                push [bx + 0] ;n
-
+                push [bx + 0] ;nomer
+        
 
         ;incrementing bx
         push bx
@@ -75,8 +81,12 @@ main:
         ;pushing return value to stack
         push ax
 
+        pop [bx + 1] ;fact
+        push [bx + 1] ;fact
         out
-
+        push [0] ;counter
+        out
+        push [bx + 1] ;fact
         pop ax
         ret
 skip_main:

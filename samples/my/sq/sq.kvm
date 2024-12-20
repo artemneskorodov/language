@@ -18,7 +18,7 @@ ebal reshi_pozhaluysta_lineinoe(blyadskiy b, blyadskiy c) {
 ebal reshi_pozhaluysta_kvadratnoe(blyadskiy a, blyadskiy b, blyadskiy c) {
     blyadskiy D = diskriminant(a, b, c);
     reskni(D > 0) {
-        blyadskiy koren = D ^ 0.5;
+        blyadskiy koren = sqrt(D);
         pokazhi((0 - b - koren) / (2 * a));
         pokazhi((0 - b + koren) / (2 * a));
         otday 2;

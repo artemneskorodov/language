@@ -1,4 +1,7 @@
 FLAGS:=-I ../common/include				\
+	   -I ../middleend/include			\
+	   -I ../frontstart/include			\
+	   -I ../backend/include 			\
 	   -I ./include 					\
 	   -Wshadow							\
 	   -Winit-self						\

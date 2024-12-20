@@ -45,7 +45,8 @@ static language_error_t get_assignment          (language_t       *ctx,
                                                  language_node_t **output);
 
 static language_error_t get_new_variable        (language_t       *ctx,
-                                                 language_node_t **output);
+                                                 language_node_t **output,
+                                                 bool              is_global);
 
 static language_error_t get_while               (language_t       *ctx,
                                                  language_node_t **output);
@@ -126,7 +127,8 @@ language_error_t get_global_statement(language_t       *ctx,
     }
     //-----------------------------------------------------------------------//
     if(is_on_operation(ctx, OPERATION_NEW_VAR)) {
-        return get_new_variable(ctx, output);
+        _RETURN_IF_ERROR(get_new_variable(ctx, output, true));
+        return LANGUAGE_SUCCESS;
     }
     //-----------------------------------------------------------------------//
     return LANGUAGE_SUCCESS;
@@ -152,7 +154,7 @@ language_error_t get_statement(language_t       *ctx,
     }
     //-----------------------------------------------------------------------//
     if(is_on_operation(ctx, OPERATION_NEW_VAR)) {
-        return get_new_variable(ctx, output);
+        return get_new_variable(ctx, output, false);
     }
     //-----------------------------------------------------------------------//
     if(is_on_operation(ctx, OPERATION_RETURN)) {
@@ -274,7 +276,8 @@ language_error_t get_new_function_params(language_t       *ctx,
     //-----------------------------------------------------------------------//
     while(true) {
         _RETURN_IF_ERROR(get_new_variable(ctx,
-                                          &current_node->left));
+                                          &current_node->left,
+                                          false));
         (*params_number)++;
         //-------------------------------------------------------------------//
         if(is_on_operation(ctx, OPERATION_CLOSE_BRACKET)) {
@@ -410,7 +413,8 @@ language_error_t get_while(language_t       *ctx,
 //===========================================================================//
 
 language_error_t get_new_variable(language_t       *ctx,
-                                  language_node_t **output) {
+                                  language_node_t **output,
+                                  bool              is_global) {
     _C_ASSERT(ctx    != NULL, return LANGUAGE_CTX_NULL   );
     _C_ASSERT(output != NULL, return LANGUAGE_NULL_OUTPUT);
     //-----------------------------------------------------------------------//
@@ -439,6 +443,8 @@ language_error_t get_new_variable(language_t       *ctx,
                                     value,
                                     IDENTIFIER_VARIABLE));
     _RETURN_IF_ERROR(variables_stack_push(ctx, *value));
+    identifier_t *nt_info = ctx->name_table.identifiers + (*value);
+    nt_info->is_global = is_global;
     ctx->frontend_info.used_locals++;
     //-----------------------------------------------------------------------//
     if(is_on_operation(ctx, OPERATION_ASSIGNMENT)) {
@@ -748,9 +754,9 @@ language_error_t get_operation(language_t       *ctx,
     }
     move_next_token(ctx);
     //-----------------------------------------------------------------------//
-    _RETURN_IF_ERROR(get_expression(ctx, &(*output)->right));
+    _RETURN_IF_ERROR(get_expression(ctx, &(*output)->left));
     //-----------------------------------------------------------------------//
-    if(!is_on_operation(ctx, OPERATION_OPEN_BRACKET)) {
+    if(!is_on_operation(ctx, OPERATION_CLOSE_BRACKET)) {
         return syntax_error(ctx, "I supposed to see ')'");
     }
     move_next_token(ctx);

@@ -28,10 +28,6 @@ skip_diskriminant:
 jmp skip_reshi_pozhaluysta_lineinoe:
 reshi_pozhaluysta_lineinoe:
         push [bx + 0] ;b
-        out
-        push [bx + 1] ;c
-        out
-        push [bx + 0] ;b
         push 0
         je skip_if_0:
                 push 0
@@ -100,8 +96,7 @@ reshi_pozhaluysta_kvadratnoe:
         push 0
         je skip_if_3:
                 push [bx + 3] ;D
-                push 0.5
-                pow
+                sqrt
                 pop [bx + 4] ;koren
                 push 0
                 push [bx + 1] ;b

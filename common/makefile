@@ -35,7 +35,7 @@ FLAGS:=-I ./include 					\
 	   -Wwrite-strings 					\
 	   -Werror=vla 						\
 	   -D_DEBUG 						\
-	   -D_EJUDGE_CLIENT_SIDE			
+	   -D_EJUDGE_CLIENT_SIDE
 BINDIR:=bin
 SRCDIR:=source
 SOURCE:=$(wildcard ${SRCDIR}/*.cpp)

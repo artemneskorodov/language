@@ -469,6 +469,17 @@ language_error_t assemble_call(language_t      *ctx,
 
 //===========================================================================//
 
+language_error_t assemble_exit(language_t      *ctx,
+                               language_node_t *node) {
+    _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
+    _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
+    //-----------------------------------------------------------------------//
+    _CMD_WRITE("hlt");
+    return LANGUAGE_SUCCESS;
+}
+
+//===========================================================================//
+
 language_error_t write_command(language_t *ctx,
                                const char *format, ...) {
     _C_ASSERT(ctx    != NULL, return LANGUAGE_CTX_NULL          );

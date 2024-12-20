@@ -269,7 +269,7 @@ language_error_t to_source_in(language_t *ctx, language_node_t *node) {
     }
     identifier_t *ident = ctx->name_table.identifiers +
                           node->left->left->value.identifier;
-    _WRITE_SRC("%*s", ident->length, ident->name);
+    _WRITE_SRC("%.*s", ident->length, ident->name);
     _WRITE_SRC(")");
 
     return LANGUAGE_SUCCESS;
@@ -296,6 +296,18 @@ language_error_t to_source_call(language_t *ctx, language_node_t *node) {
     _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
     //-----------------------------------------------------------------------//
     _RETURN_IF_ERROR(to_source_subtree(ctx, node->left));
+    return LANGUAGE_SUCCESS;
+}
+
+//===========================================================================//
+
+language_error_t to_source_exit(language_t *ctx, language_node_t *node) {
+    _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
+    _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
+    //-----------------------------------------------------------------------//
+    _WRITE_SRC("%*s%s;",
+               ctx->frontstart_info.depth * 8, "",
+               KeyWords[OPERATION_PROGRAM_END].name);
     return LANGUAGE_SUCCESS;
 }
 

@@ -1,5 +1,0 @@
-ebal main() {
-    blyadskiy huy = 1;
-    pokazhi(huy * 0 + 10 / 5);
-    otday 0;
-}
