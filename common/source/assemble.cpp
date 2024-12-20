@@ -137,10 +137,12 @@ language_error_t compile_function_call(language_t      *ctx,
     for(size_t i = ident->parameters_number; i > 0; i--) {
         _RETURN_IF_ERROR(write_command(ctx, "pop [bx + " SZ_SP "]", i - 1));
     }
+    _CMD_WRITE("\r\n"                          );
     //-----------------------------------------------------------------------//
     _CMD_WRITE("call %.*s:",
                (int)ident->length,
                ident->name                     );
+    _CMD_WRITE("\r\n"                          );
     //-----------------------------------------------------------------------//
     _CMD_WRITE(";resetting bx"                 );
     _CMD_WRITE("pop bx"                        );
@@ -203,10 +205,10 @@ language_error_t assemble_comparison(language_t      *ctx,
     size_t      num     = ctx->backend_info.used_labels++;
     const char *asm_cmd = KeyWords[node->value.opcode].assembler_command;
     _CMD_WRITE("%s _cmp_t_" SZ_SP ":", asm_cmd, num);
-    _CMD_WRITE("push 0"                            );
+    _CMD_WRITE("push 0  ;true"                     );
     _CMD_WRITE("jmp _cmp_t_end_" SZ_SP ":\r\n", num);
     _CMD_WRITE("_cmp_t_" SZ_SP ":", num            );
-    _CMD_WRITE("push 1"                            );
+    _CMD_WRITE("push 1  ;false"                    );
     _CMD_WRITE("_cmp_t_end_" SZ_SP ":\r\n", num    );
     //-----------------------------------------------------------------------//
     return LANGUAGE_SUCCESS;
@@ -270,6 +272,7 @@ language_error_t assemble_if(language_t      *ctx,
     ctx->backend_info.scope++;
     _RETURN_IF_ERROR(compile_subtree(ctx, node->left));
     ctx->backend_info.scope--;
+    _CMD_WRITE("\r\n"                      );
     //-----------------------------------------------------------------------//
     size_t num = ctx->backend_info.used_labels++;
     _CMD_WRITE("push 0"                    );
@@ -281,6 +284,7 @@ language_error_t assemble_if(language_t      *ctx,
     ctx->backend_info.scope--;
     //-----------------------------------------------------------------------//
     _CMD_WRITE("skip_if_" SZ_SP ":", num   );
+    _CMD_WRITE("\r\n"                      );
     return LANGUAGE_SUCCESS;
 }
 
@@ -301,6 +305,7 @@ language_error_t assemble_while(language_t      *ctx,
     ctx->backend_info.scope++;
     _RETURN_IF_ERROR(compile_subtree(ctx, node->left));
     ctx->backend_info.scope--;
+    _CMD_WRITE("\r\n"                            );
     _CMD_WRITE("push 0"                          );
     _CMD_WRITE("je _skip_while_" SZ_SP ":", num  );
     //-----------------------------------------------------------------------//
@@ -308,9 +313,11 @@ language_error_t assemble_while(language_t      *ctx,
     ctx->backend_info.scope++;
     _RETURN_IF_ERROR(compile_subtree(ctx, node->right));
     ctx->backend_info.scope--;
+    _CMD_WRITE("\r\n"                            );
     //-----------------------------------------------------------------------//
     _CMD_WRITE("jmp _while_start_" SZ_SP ":", num);
     _CMD_WRITE("_skip_while_" SZ_SP ":", num     );
+    _CMD_WRITE("\r\n"                            );
     return LANGUAGE_SUCCESS;
 }
 
@@ -420,9 +427,6 @@ language_error_t assemble_new_func(language_t      *ctx,
     }
     identifier_t *ident = ctx->name_table.identifiers +
                           node->left->value.identifier;
-    _CMD_WRITE(";compiling %.*s",
-               (int)ident->length,
-               ident->name                 );
     _CMD_WRITE("jmp skip_%.*s:",
                (int)ident->length,
                ident->name                 );
