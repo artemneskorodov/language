@@ -1,0 +1,13 @@
+ebal factorial(blyadskiy n) {
+        reskni(n) {
+                otday n * factorial(n - 1);
+        }
+        otday 1;
+}
+
+ebal main() {
+        blyadskiy n = 5;
+        vozmi((null))
+        factorial(n);
+        pokazhi(factorial(n));
+        otday

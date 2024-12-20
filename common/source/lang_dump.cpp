@@ -231,10 +231,10 @@ const char *get_node_color(language_t *ctx, language_node_t *node) {
                 case IDENTIFIER_FUNCTION: {
                     return node_color_ident_function;
                 }
-                case IDENTIFIER_GLOBAL_VAR: {
-                    return node_color_ident_global_var;
-                }
-                case IDENTIFIER_LOCAL_VAR: {
+                case IDENTIFIER_VARIABLE: {
+                    if(ident->is_global) {
+                        return node_color_ident_global_var;
+                    }
                     return node_color_ident_local_var;
                 }
                 default: {

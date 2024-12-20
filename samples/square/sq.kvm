@@ -1,24 +1,50 @@
 
-ebal solve(blyadskiy a, blyadskiy b, blyadskiy c) {
-    blyadskiy diskriminant = b^2 - 4 * a * c;
-    reskni(diskriminant > 0) {
-        blyadskiy koren = diskriminant^0.5;
-        pokazhi(((0 - 1) * b - koren) / (2 * a));
-        pokazhi(((0 - 1) * b + koren) / (2 * a));
-        otday 2;
+ebal diskriminant(blyadskiy a, blyadskiy b, blyadskiy c) {
+    otday b^2 - 4 * a * c;
+}
+
+ebal reshi_pozhaluysta_lineinoe(blyadskiy b, blyadskiy c) {
+    reskni(b) {
+        pokazhi(0 - c / b);
+        otday 1;
     }
-    reskni(diskriminant < 0) {
+    reskni(c) {
         otday 0;
     }
-    pokazhi((0 - 1) * b / (2 * a));
-    otday 1;
+    pokazhi(1488);
+    otday 211;
+}
+
+ebal reshi_pozhaluysta_kvadratnoe(blyadskiy a, blyadskiy b, blyadskiy c) {
+    blyadskiy D = diskriminant(a, b, c);
+    reskni(D > 0) {
+        blyadskiy koren = D ^ 0.5;
+        pokazhi((0 - b - koren) / (2 * a));
+        pokazhi((0 - b + koren) / (2 * a));
+        otday 2;
+    }
+    reskni(D < 0) {
+        otday 0;
+    }
+    pokazhi((0 - b) / (2 * a));
+    otday 0;
+}
+
+ebal reshi_pozhaluysta_uravneniye(blyadskiy a, blyadskiy b, blyadskiy c) {
+    reskni(a) {
+        otday reshi_pozhaluysta_kvadratnoe(a, b, c);
+    }
+    otday reshi_pozhaluysta_lineinoe(b, c);
 }
 
 ebal main () {
-    blyadskiy a = vozmi;
-    blyadskiy b = vozmi;
-    blyadskiy c = vozmi;
+    blyadskiy a = 0;
+    blyadskiy b = 0;
+    blyadskiy c = 0;
+    vozmi(a);
+    vozmi(b);
+    vozmi(c);
 
-    blyadskiy num = solve(a, b, c);
+    blyadskiy num = reshi_pozhaluysta_uravneniye(a, b, c);
     otday num;
 }

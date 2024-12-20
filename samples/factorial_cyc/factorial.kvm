@@ -8,6 +8,7 @@ ebal factorial(blyadskiy nomer) {
 }
 
 ebal main() {
-    blyadskiy nomer = vozmi;
+    blyadskiy nomer = 0;
+    vozmi(nomer);
     otday factorial(nomer);
 }

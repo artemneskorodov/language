@@ -43,6 +43,9 @@ language_error_t to_source_in               (language_t        *ctx,
 language_error_t to_source_out              (language_t        *ctx,
                                              language_node_t   *node);
 
+language_error_t to_source_call             (language_t        *ctx,
+                                             language_node_t   *node);
+
 //===========================================================================//
 
 #endif

@@ -38,7 +38,8 @@ language_error_t frontend_ctor(language_t *ctx, int argc, const char *argv[]) {
     FILE *source = fopen(ctx->input_file, "rb");
     if(source == NULL) {
         print_error("Error while opening source code file '%s'. "
-                    "May be the file does not exist.\n");
+                    "May be the file does not exist.\n",
+                    ctx->input_file);
         return LANGUAGE_OPENING_FILE_ERROR;
     }
     ctx->input_size = file_size(source);

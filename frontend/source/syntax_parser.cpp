@@ -6,6 +6,7 @@
 #include "frontend_utils.h"
 #include "custom_assert.h"
 #include "colors.h"
+#include "nodes_dsl.h"
 
 //==========================================================================================================================//
 
@@ -44,8 +45,7 @@ static language_error_t get_assignment          (language_t       *ctx,
                                                  language_node_t **output);
 
 static language_error_t get_new_variable        (language_t       *ctx,
-                                                 language_node_t **output,
-                                                 identifier_type_t type);
+                                                 language_node_t **output);
 
 static language_error_t get_while               (language_t       *ctx,
                                                  language_node_t **output);
@@ -126,7 +126,7 @@ language_error_t get_global_statement(language_t       *ctx,
     }
     //-----------------------------------------------------------------------//
     if(is_on_operation(ctx, OPERATION_NEW_VAR)) {
-        return get_new_variable(ctx, output, IDENTIFIER_GLOBAL_VAR);
+        return get_new_variable(ctx, output);
     }
     //-----------------------------------------------------------------------//
     return LANGUAGE_SUCCESS;
@@ -152,23 +152,26 @@ language_error_t get_statement(language_t       *ctx,
     }
     //-----------------------------------------------------------------------//
     if(is_on_operation(ctx, OPERATION_NEW_VAR)) {
-        return get_new_variable(ctx, output, IDENTIFIER_LOCAL_VAR);
+        return get_new_variable(ctx, output);
     }
     //-----------------------------------------------------------------------//
     if(is_on_operation(ctx, OPERATION_RETURN)) {
         return get_return(ctx, output);
     }
+    if(is_on_operation(ctx, OPERATION_IN)) {
+        return get_in(ctx, output);
+    }
     //-----------------------------------------------------------------------//
     if(is_on_type(ctx, NODE_TYPE_IDENTIFIER)) {
         _RETURN_IF_ERROR(set_reference(ctx, token_position(ctx)));
         //-------------------------------------------------------------------//
-        if(is_on_ident_type(ctx, IDENTIFIER_GLOBAL_VAR) ||
-           is_on_ident_type(ctx, IDENTIFIER_LOCAL_VAR )) {
+        if(is_on_ident_type(ctx, IDENTIFIER_VARIABLE)) {
             return get_assignment(ctx, output);
         }
         //-------------------------------------------------------------------//
         else if(is_on_ident_type(ctx, IDENTIFIER_FUNCTION)) {
-            return get_function_call(ctx, output);
+            return syntax_error(ctx, "CHECK FUCKING RETURN VALUES. "
+                                     "(sry i didn't want to implement this)");
         }
         //-------------------------------------------------------------------//
         return syntax_error(ctx, "Undefined identifier usage.\n");
@@ -189,7 +192,7 @@ language_error_t get_return(language_t       *ctx,
     *output = token_position(ctx);
     move_next_token(ctx);
     //-----------------------------------------------------------------------//
-    _RETURN_IF_ERROR(get_expression(ctx, &(*output)->right));
+    _RETURN_IF_ERROR(get_expression(ctx, &(*output)->left));
     //-----------------------------------------------------------------------//
     return LANGUAGE_SUCCESS;
 }
@@ -213,10 +216,10 @@ language_error_t get_new_function(language_t       *ctx,
     }
     language_node_t *ident = token_position(ctx);
     _RETURN_IF_ERROR(move_next_token(ctx));
-    (*output)->right = ident;
+    (*output)->left = ident;
     //-----------------------------------------------------------------------//
-    const char *name = ctx->name_table.used_names[ident->value.identifier].name;
-    size_t length    = ctx->name_table.used_names[ident->value.identifier].length;
+    const char *name   = ctx->name_table.used_names[ident->value.identifier].name;
+    size_t      length = ctx->name_table.used_names[ident->value.identifier].length;
     _RETURN_IF_ERROR(name_table_add(ctx,
                                     name,
                                     length,
@@ -234,7 +237,7 @@ language_error_t get_new_function(language_t       *ctx,
     ctx->frontend_info.used_locals = 0;
     //-----------------------------------------------------------------------//
     size_t params_number = 0;
-    _RETURN_IF_ERROR(get_new_function_params(ctx, &ident->right, &params_number));
+    _RETURN_IF_ERROR(get_new_function_params(ctx, &ident->left, &params_number));
     ctx->name_table.identifiers[ident->value.identifier].parameters_number = params_number;
     //-----------------------------------------------------------------------//
     if(!is_on_operation(ctx, OPERATION_CLOSE_BRACKET)) {
@@ -244,7 +247,7 @@ language_error_t get_new_function(language_t       *ctx,
     }
     move_next_token(ctx);
     //-----------------------------------------------------------------------//
-    _RETURN_IF_ERROR(get_body(ctx, &ident->left));
+    _RETURN_IF_ERROR(get_body(ctx, &ident->right));
     //-----------------------------------------------------------------------//
     _RETURN_IF_ERROR(variables_stack_remove(ctx,
                                             ctx->frontend_info.used_locals));
@@ -271,8 +274,7 @@ language_error_t get_new_function_params(language_t       *ctx,
     //-----------------------------------------------------------------------//
     while(true) {
         _RETURN_IF_ERROR(get_new_variable(ctx,
-                                          &current_node->left,
-                                          IDENTIFIER_LOCAL_VAR));
+                                          &current_node->left));
         (*params_number)++;
         //-------------------------------------------------------------------//
         if(is_on_operation(ctx, OPERATION_CLOSE_BRACKET)) {
@@ -408,8 +410,7 @@ language_error_t get_while(language_t       *ctx,
 //===========================================================================//
 
 language_error_t get_new_variable(language_t       *ctx,
-                                  language_node_t **output,
-                                  identifier_type_t type) {
+                                  language_node_t **output) {
     _C_ASSERT(ctx    != NULL, return LANGUAGE_CTX_NULL   );
     _C_ASSERT(output != NULL, return LANGUAGE_NULL_OUTPUT);
     //-----------------------------------------------------------------------//
@@ -432,24 +433,23 @@ language_error_t get_new_variable(language_t       *ctx,
     size_t     *value  = &ident->value.identifier;
     const char *name   = ctx->name_table.used_names[*value].name;
     size_t      length = ctx->name_table.used_names[*value].length;
-    _RETURN_IF_ERROR(name_table_add(ctx, name, length, value, type));
+    _RETURN_IF_ERROR(name_table_add(ctx,
+                                    name,
+                                    length,
+                                    value,
+                                    IDENTIFIER_VARIABLE));
     _RETURN_IF_ERROR(variables_stack_push(ctx, *value));
     ctx->frontend_info.used_locals++;
     //-----------------------------------------------------------------------//
     if(is_on_operation(ctx, OPERATION_ASSIGNMENT)) {
-        (*output)->right = token_position(ctx);
+        (*output)->left = token_position(ctx);
         move_next_token(ctx);
-        (*output)->right->left = ident;
-        if(is_on_operation(ctx, OPERATION_IN)) {
-            _RETURN_IF_ERROR(get_in(ctx, &(*output)->right->right));
-        }
-        else {
-            _RETURN_IF_ERROR(get_expression(ctx, &(*output)->right->right));
-        }
+        (*output)->left->left = ident;
+        _RETURN_IF_ERROR(get_expression(ctx, &(*output)->left->right));
     }
     //-----------------------------------------------------------------------//
     else {
-        (*output)->right = ident;
+        (*output)->left = ident;
     }
     //-----------------------------------------------------------------------//
     return LANGUAGE_SUCCESS;
@@ -474,11 +474,6 @@ language_error_t get_assignment(language_t       *ctx,
     move_next_token(ctx);
     (*output)->left = lvalue;
     //-----------------------------------------------------------------------//
-    if(is_on_operation(ctx, OPERATION_IN)) {
-        _RETURN_IF_ERROR(get_in(ctx, &(*output)->right));
-        return LANGUAGE_SUCCESS;
-    }
-    //-----------------------------------------------------------------------//
     _RETURN_IF_ERROR(get_expression(ctx, &(*output)->right));
     //-----------------------------------------------------------------------//
     return LANGUAGE_SUCCESS;
@@ -493,10 +488,15 @@ language_error_t get_function_call(language_t       *ctx,
     //-----------------------------------------------------------------------//
     _C_ASSERT(is_on_ident_type(ctx, IDENTIFIER_FUNCTION),
               return LANGUAGE_SYNTAX_UNEXPECTED_CALL);
-    *output = token_position(ctx);
+    _RETURN_IF_ERROR(nodes_storage_add(ctx,
+                                       NODE_TYPE_OPERATION,
+                                       OPCODE(OPERATION_CALL),
+                                       "", 0,
+                                       output));
+    (*output)->left = token_position(ctx);
     move_next_token(ctx);
     identifier_t *ident = ctx->name_table.identifiers +
-                          (*output)->value.identifier;
+                          (*output)->left->value.identifier;
     //-----------------------------------------------------------------------//
     if(!is_on_operation(ctx, OPERATION_OPEN_BRACKET)) {
         return syntax_error(ctx,
@@ -507,7 +507,7 @@ language_error_t get_function_call(language_t       *ctx,
     move_next_token(ctx);
     //-----------------------------------------------------------------------//
     _RETURN_IF_ERROR(get_function_call_params(ctx,
-                                              &(*output)->right,
+                                              &(*output)->left->left,
                                               ident));
     //-----------------------------------------------------------------------//
     if(!is_on_operation(ctx, OPERATION_CLOSE_BRACKET)) {
@@ -699,8 +699,7 @@ language_error_t get_element(language_t       *ctx,
             return get_function_call(ctx, output);
         }
         //-------------------------------------------------------------------//
-        if(is_on_ident_type(ctx, IDENTIFIER_GLOBAL_VAR) ||
-           is_on_ident_type(ctx, IDENTIFIER_LOCAL_VAR )) {
+        if(is_on_ident_type(ctx, IDENTIFIER_VARIABLE)) {
             return get_variable(ctx, output);
         }
         //-------------------------------------------------------------------//
@@ -766,8 +765,7 @@ language_error_t get_variable(language_t       *ctx,
     _C_ASSERT(ctx    != NULL, return LANGUAGE_CTX_NULL   );
     _C_ASSERT(output != NULL, return LANGUAGE_NULL_OUTPUT);
     //-----------------------------------------------------------------------//
-    _C_ASSERT(is_on_ident_type(ctx, IDENTIFIER_GLOBAL_VAR) ||
-              is_on_ident_type(ctx, IDENTIFIER_LOCAL_VAR),
+    _C_ASSERT(is_on_ident_type(ctx, IDENTIFIER_VARIABLE),
               return LANGUAGE_SYNTAX_UNEXPECTED_CALL);
     *output = token_position(ctx);
     move_next_token(ctx);
@@ -785,6 +783,28 @@ language_error_t get_in(language_t       *ctx,
     _C_ASSERT(is_on_operation(ctx, OPERATION_IN),
               return LANGUAGE_SYNTAX_UNEXPECTED_CALL);
     *output = token_position(ctx);
+    _RETURN_IF_ERROR(move_next_token(ctx));
+    if(!is_on_operation(ctx, OPERATION_OPEN_BRACKET)) {
+        return syntax_error(ctx, "Expected to see '(' after input keyword.");
+    }
+    (*output)->left = token_position(ctx);
+    _RETURN_IF_ERROR(move_next_token(ctx));
+    _RETURN_IF_ERROR(set_val((*output)->left,
+                             NODE_TYPE_OPERATION,
+                             OPCODE(OPERATION_PARAM_LINKER),
+                             NULL, NULL));
+    if(!is_on_type(ctx, NODE_TYPE_IDENTIFIER)) {
+        return syntax_error(ctx, "Expected to see in parameter as variable");
+    }
+    _RETURN_IF_ERROR(set_reference(ctx, token_position(ctx)));
+    if(!is_on_ident_type(ctx, IDENTIFIER_VARIABLE)) {
+        return syntax_error(ctx, "Expected to see in parameter as variable");
+    }
+    (*output)->left->left = token_position(ctx);
+    _RETURN_IF_ERROR(move_next_token(ctx));
+    if(!is_on_operation(ctx, OPERATION_CLOSE_BRACKET)) {
+        return syntax_error(ctx, "Expected to see ')' after variable in input.");
+    }
     _RETURN_IF_ERROR(move_next_token(ctx));
     //-----------------------------------------------------------------------//
     return LANGUAGE_SUCCESS;
@@ -808,7 +828,7 @@ language_error_t get_out(language_t       *ctx,
     }
     _RETURN_IF_ERROR(move_next_token(ctx));
     //-----------------------------------------------------------------------//
-    _RETURN_IF_ERROR(get_expression(ctx, &(*output)->right));
+    _RETURN_IF_ERROR(get_expression(ctx, &(*output)->left));
     //-----------------------------------------------------------------------//
     if(!is_on_operation(ctx, OPERATION_CLOSE_BRACKET)) {
         return syntax_error(ctx,

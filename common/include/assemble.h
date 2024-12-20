@@ -49,6 +49,8 @@ language_error_t assemble_in                (language_t        *ctx,
 language_error_t assemble_out               (language_t        *ctx,
                                              language_node_t   *node);
 
+language_error_t assemble_call              (language_t        *ctx,
+                                             language_node_t   *node);
 
 //===========================================================================//
 

@@ -82,8 +82,9 @@ enum operation_t {
     OPERATION_NEW_FUNC               = 21,
     OPERATION_IN                     = 22,
     OPERATION_OUT                    = 23,
+    OPERATION_CALL                   = 24,
     //add here
-    OPERATION_PROGRAM_END            = 24,
+    OPERATION_PROGRAM_END            = 25,
 };
 
 //===========================================================================//
@@ -115,9 +116,8 @@ struct language_node_t {
 //===========================================================================//
 
 enum identifier_type_t {
-    IDENTIFIER_FUNCTION              = 1,
-    IDENTIFIER_GLOBAL_VAR            = 2,
-    IDENTIFIER_LOCAL_VAR             = 3,
+    IDENTIFIER_VARIABLE              = 1,
+    IDENTIFIER_FUNCTION              = 2,
 };
 
 //===========================================================================//
@@ -129,6 +129,7 @@ struct identifier_t {
     size_t                           parameters_number;
     bool                             is_defined;
     size_t                           memory_addr;
+    bool                             is_global;
 };
 
 //===========================================================================//
@@ -295,8 +296,9 @@ static const keyword_t KeyWords[] = {
     {STR_LEN("ebal"     ), OPERATION_NEW_FUNC     , assemble_new_func        , NULL , false, to_source_new_func       , 0, NULL        },
     {STR_LEN("vozmi"    ), OPERATION_IN           , assemble_in              , NULL , false, to_source_in             , 0, NULL        },
     {STR_LEN("pokazhi"  ), OPERATION_OUT          , assemble_out             , NULL , false, to_source_out            , 0, NULL        },
+    {STR_LEN("pososi"   ), OPERATION_CALL         , assemble_call            , NULL , false, to_source_call           , 0, NULL        },
     //TODO
-    {NULL, 0             , OPERATION_PROGRAM_END    , NULL                      , NULL, false},
+    {NULL, 0             , OPERATION_PROGRAM_END  , NULL                     , NULL , false}
 };
 
 #undef STR_LEN

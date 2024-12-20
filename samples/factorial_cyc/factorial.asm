@@ -17,7 +17,6 @@ factorial:
         push [bx + 0] ;nomer
         push 0
         ja _cmp_t_1:
-
         push 0
         jmp _cmp_t_end_1:
 
@@ -45,6 +44,8 @@ skip_factorial:
 ;compiling main
 jmp skip_main:
 main:
+        push 0
+        pop [bx + 0] ;nomer
         in
         pop [bx + 0] ;nomer
         ;saving BX
@@ -52,7 +53,7 @@ main:
 
         ;function parameters
                 push [bx + 0] ;nomer
-
+        
 
         ;incrementing bx
         push bx

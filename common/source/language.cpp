@@ -96,6 +96,12 @@ static language_error_t create_node      (language_t        *ctx,
                                           void              *output,
                                           char               symbol,
                                           file_elem_t       *rules);
+
+static language_error_t get_bool         (language_t        *ctx,
+                                          void              *output,
+                                          char               symbol,
+                                          file_elem_t       *rules);
+
 //===========================================================================//
 
 static const flag_prototype_t SupportedFlags[] = {
@@ -224,18 +230,18 @@ language_error_t read_name_table(language_t *ctx) {
     ctx->input_position = length_end;
     for(size_t elem = 0; elem < name_table_size; elem++) {
         //-------------------------------------------------------------------//
-        size_t name_size       = 0;
-        const char *name_start = NULL;
-        identifier_type_t type = (identifier_type_t)0;
-        size_t param_number    = 0;
+        size_t            name_size    = 0;
+        const char       *name_start   = NULL;
+        identifier_type_t type         = (identifier_type_t)0;
+        bool              is_global    = false;
+        size_t            param_number = 0;
 
         file_elem_t nt_elems[] = {
             {'{', NULL         , check_char },
             {EOF, &name_size   , get_size   },
-            {'"', NULL         , check_char },
             {EOF, &name_start  , get_nt_name},
-            {'"', NULL         , check_char },
             {EOF, &type        , get_id_type},
+            {EOF, &is_global   , get_bool   },
             {EOF, &param_number, get_size   },
             {'}', NULL         , check_char }};
         //-------------------------------------------------------------------//
@@ -252,7 +258,9 @@ language_error_t read_name_table(language_t *ctx) {
                                         name_size,
                                         &name_index,
                                         type));
-        ctx->name_table.identifiers[name_index].parameters_number = param_number;
+        identifier_t *ident = ctx->name_table.identifiers + name_index;
+        ident->parameters_number = param_number;
+        ident->is_global         = is_global;
     }
     //-----------------------------------------------------------------------//
     return LANGUAGE_SUCCESS;
@@ -299,8 +307,9 @@ language_error_t get_nt_name(language_t *ctx, void *name, char, file_elem_t *) {
     _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL   );
     _C_ASSERT(name != NULL, return LANGUAGE_NULL_OUTPUT);
     //-----------------------------------------------------------------------//
+    _RETURN_IF_ERROR(skip_spaces(ctx));
     *(const char **)name = ctx->input_position;
-    while(*ctx->input_position != '"') {
+    while(isalpha(*ctx->input_position) || *ctx->input_position == '_') {
         ctx->input_position++;
     }
     //-----------------------------------------------------------------------//
@@ -314,6 +323,27 @@ language_error_t check_char(language_t *ctx, void *, char symbol, file_elem_t *)
     //-----------------------------------------------------------------------//
     _RETURN_IF_ERROR(skip_spaces(ctx));
     if(*ctx->input_position != symbol) {
+        return nt_error(ctx);
+    }
+    ctx->input_position++;
+    //-----------------------------------------------------------------------//
+    return LANGUAGE_SUCCESS;
+}
+
+//===========================================================================//
+
+language_error_t get_bool(language_t *ctx, void *output, char, file_elem_t *) {
+    _C_ASSERT(ctx    != NULL, return LANGUAGE_CTX_NULL   );
+    _C_ASSERT(output != NULL, return LANGUAGE_NULL_OUTPUT);
+    //-----------------------------------------------------------------------//
+    _RETURN_IF_ERROR(skip_spaces(ctx));
+    if(*ctx->input_position == '0') {
+        *(bool *)output = false;
+    }
+    else if(*ctx->input_position == '1') {
+        *(bool *)output = true;
+    }
+    else {
         return nt_error(ctx);
     }
     ctx->input_position++;
@@ -453,7 +483,7 @@ language_error_t get_node_left(language_t *ctx, void *, char, file_elem_t *rules
     //-----------------------------------------------------------------------//
     language_node_t *node = *(language_node_t **)rules[3].output;
     _RETURN_IF_ERROR(skip_spaces(ctx));
-    if(*ctx->input_position != '-') {
+    if(*ctx->input_position != '_') {
         _RETURN_IF_ERROR(read_subtree(ctx, &node->left));
     }
     else {
@@ -471,7 +501,7 @@ language_error_t get_node_right(language_t *ctx, void *, char, file_elem_t *rule
     //-----------------------------------------------------------------------//
     language_node_t *node = *(language_node_t **)rules[3].output;
     _RETURN_IF_ERROR(skip_spaces(ctx));
-    if(*ctx->input_position != '-') {
+    if(*ctx->input_position != '_') {
         _RETURN_IF_ERROR(read_subtree(ctx, &node->right));
     }
     else {
@@ -496,11 +526,12 @@ language_error_t write_tree(language_t *ctx) {
     for(size_t elem = 0; elem < ctx->name_table.size; elem++) {
         identifier_t *ident = ctx->name_table.identifiers + elem;
         fprintf(output,
-                "{" SZ_SP " \"%.*s\" %d %lu}\n",
+                "{" SZ_SP " %.*s %d %d %lu}\n",
                 ident->length,
                 (int)ident->length,
                 ident->name,
                 ident->type,
+                ident->is_global,
                 ident->parameters_number);
     }
     //-----------------------------------------------------------------------//
@@ -542,13 +573,13 @@ language_error_t write_subtree(language_t *ctx, language_node_t *node, FILE *out
         _RETURN_IF_ERROR(write_subtree(ctx, node->left, output));
     }
     else {
-        fprintf(output, "- ");
+        fprintf(output, "_ ");
     }
     if(node->right != NULL) {
         _RETURN_IF_ERROR(write_subtree(ctx, node->right, output));
     }
     else {
-        fprintf(output, "- ");
+        fprintf(output, "_ ");
     }
     //-----------------------------------------------------------------------//
     fprintf(output, "} ");

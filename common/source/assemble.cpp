@@ -76,17 +76,10 @@ language_error_t compile_identifier(language_t      *ctx,
             _RETURN_IF_ERROR(compile_function_call(ctx, node));
             break;
         }
-        case IDENTIFIER_GLOBAL_VAR: {
-            _CMD_WRITE("%s [" SZ_SP "] ;%.*s",
+        case IDENTIFIER_VARIABLE: {
+            _CMD_WRITE("%s [%s" SZ_SP "] ;%.*s",
                        command,
-                       ident->memory_addr,
-                       (int)ident->length,
-                       ident->name);
-            break;
-        }
-        case IDENTIFIER_LOCAL_VAR: {
-            _CMD_WRITE("%s [bx + " SZ_SP "] ;%.*s",
-                       command,
+                       !ident->is_global ? "bx + " : "",
                        ident->memory_addr,
                        (int)ident->length,
                        ident->name);
@@ -116,7 +109,7 @@ language_error_t compile_function_call(language_t      *ctx,
     }
     identifier_t    *ident = ctx->name_table.identifiers +
                              node->value.identifier;
-    language_node_t *param = node->right;
+    language_node_t *param = node->left;
     //-----------------------------------------------------------------------//
     _CMD_WRITE(";saving BX"                    );
     _CMD_WRITE("push bx\r\n"                   );
@@ -183,7 +176,7 @@ language_error_t assemble_one_arg(language_t      *ctx,
     if(!is_node_type_eq(node, NODE_TYPE_OPERATION)) {
         return LANGUAGE_UNEXPECTED_NODE_TYPE;
     }
-    _RETURN_IF_ERROR(compile_subtree(ctx, node->right));
+    _RETURN_IF_ERROR(compile_subtree(ctx, node->left));
     //-----------------------------------------------------------------------//
     const char *asm_cmd = KeyWords[node->value.opcode].assembler_command;
     _CMD_WRITE("%s", asm_cmd                       );
@@ -313,7 +306,7 @@ language_error_t assemble_return(language_t      *ctx,
     if(!is_node_oper_eq(node, OPERATION_RETURN)) {
         return LANGUAGE_UNEXPECTED_OPER;
     }
-    _RETURN_IF_ERROR(compile_subtree(ctx, node->right));
+    _RETURN_IF_ERROR(compile_subtree(ctx, node->left));
     //-----------------------------------------------------------------------//
     _CMD_WRITE("pop ax"                         );
     _CMD_WRITE("ret"                            );
@@ -351,11 +344,11 @@ language_error_t assemble_new_var(language_t      *ctx,
     }
 
     language_node_t *ident = NULL;
-    if      (is_node_oper_eq(node->right, OPERATION_ASSIGNMENT)) {
-        ident = node->right->left;
+    if      (is_node_oper_eq(node->left, OPERATION_ASSIGNMENT)) {
+        ident = node->left->left;
     }
-    else if (is_node_type_eq(node->right, NODE_TYPE_IDENTIFIER)) {
-        ident = node->right;
+    else if (is_node_type_eq(node->left, NODE_TYPE_IDENTIFIER)) {
+        ident = node->left;
     }
     else    /*Unknown_new_var_subtree_structure_______________*/ {
         print_error("Unknown new variable subtree structure.\n");
@@ -368,10 +361,12 @@ language_error_t assemble_new_var(language_t      *ctx,
     }
     //-----------------------------------------------------------------------//
     size_t addr = 0;
-    if     (is_ident_type(ctx, ident, IDENTIFIER_LOCAL_VAR )) {
+    identifier_t *nt_info = ctx->name_table.identifiers +
+                            ident->value.identifier;
+    if     (!nt_info->is_global) {
         addr = ctx->backend_info.used_locals;
     }
-    else if(is_ident_type(ctx, ident, IDENTIFIER_GLOBAL_VAR)) {
+    else if(nt_info->is_global ) {
         addr = ctx->backend_info.used_globals;
     }
     else   /*Function_or_unset_id__________________________*/ {
@@ -381,14 +376,14 @@ language_error_t assemble_new_var(language_t      *ctx,
 
     _RETURN_IF_ERROR(set_memory_addr(ctx, ident, addr));
     //-----------------------------------------------------------------------//
-    if(is_node_oper_eq(node->right, OPERATION_ASSIGNMENT)) {
-        _RETURN_IF_ERROR(assemble_assignment(ctx, node->right));
+    if(is_node_oper_eq(node->left, OPERATION_ASSIGNMENT)) {
+        _RETURN_IF_ERROR(assemble_assignment(ctx, node->left));
     }
     //-----------------------------------------------------------------------//
-    if     (is_ident_type(ctx, ident, IDENTIFIER_LOCAL_VAR)) {
+    if     (!nt_info->is_global) {
         ctx->backend_info.used_locals++;
     }
-    else if(is_ident_type(ctx, ident, IDENTIFIER_GLOBAL_VAR)) {
+    else if(nt_info->is_global ) {
         ctx->backend_info.used_globals++;
     }
     //-----------------------------------------------------------------------//
@@ -406,7 +401,7 @@ language_error_t assemble_new_func(language_t      *ctx,
         return LANGUAGE_UNEXPECTED_OPER;
     }
     identifier_t *ident = ctx->name_table.identifiers +
-                          node->right->value.identifier;
+                          node->left->value.identifier;
     _CMD_WRITE(";compiling %.*s",
                (int)ident->length,
                ident->name                 );
@@ -420,8 +415,8 @@ language_error_t assemble_new_func(language_t      *ctx,
     ctx->backend_info.used_locals = 0;
 
     ctx->backend_info.scope++;
-    _RETURN_IF_ERROR(compile_subtree(ctx, node->right->right));
-    _RETURN_IF_ERROR(compile_subtree(ctx, node->right->left ));
+    _RETURN_IF_ERROR(compile_subtree(ctx, node->left->left));
+    _RETURN_IF_ERROR(compile_subtree(ctx, node->left->right ));
     ctx->backend_info.scope--;
 
     //-----------------------------------------------------------------------//
@@ -442,6 +437,7 @@ language_error_t assemble_in(language_t      *ctx,
         return LANGUAGE_UNEXPECTED_OPER;
     }
     _CMD_WRITE("in"                             );
+    _RETURN_IF_ERROR(compile_identifier(ctx, node->left->left, "pop"));
     return LANGUAGE_SUCCESS;
 }
 
@@ -455,8 +451,19 @@ language_error_t assemble_out(language_t      *ctx,
     if(!is_node_oper_eq(node, OPERATION_OUT)) {
         return LANGUAGE_UNEXPECTED_OPER;
     }
-    _RETURN_IF_ERROR(compile_subtree(ctx, node->right));
+    _RETURN_IF_ERROR(compile_subtree(ctx, node->left));
     _CMD_WRITE("out"                            );
+    return LANGUAGE_SUCCESS;
+}
+
+//===========================================================================//
+
+language_error_t assemble_call(language_t      *ctx,
+                               language_node_t *node) {
+    _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
+    _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
+    //-----------------------------------------------------------------------//
+    _RETURN_IF_ERROR(compile_subtree(ctx, node->left));
     return LANGUAGE_SUCCESS;
 }
 
@@ -493,3 +500,4 @@ language_error_t write_command(language_t *ctx,
 }
 
 //===========================================================================//
+
