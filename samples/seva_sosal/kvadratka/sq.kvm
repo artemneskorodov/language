@@ -1,9 +1,10 @@
-ebal solve_linear(blyadskiy b, blyadskiy c) {
-        reskni(c) {
-                blyadskiy x = 0 - b / c;
+ebal solve_linear(blyadskiy b_seva, blyadskiy c_seva) {
+        reskni(c_seva) {
+                blyadskiy x_seva_tnf = 0 - c_seva / b_seva;
+                pokazhi(x_seva_tnf);
                 otday 0;
         }
-        ExitKPM;
+        otday 0;
 }
 
 ebal discriminant(blyadskiy a, blyadskiy b, blyadskiy c) {
@@ -13,8 +14,8 @@ ebal discriminant(blyadskiy a, blyadskiy b, blyadskiy c) {
 ebal solve_quadratic_equation(blyadskiy a, blyadskiy b, blyadskiy c) {
         reskni(a) {
                 blyadskiy D = discriminant(a, b, c);
-                blyadskiy x_one = 0 - b + ebal D / 2 * a;
-                blyadskiy x_two = 0 - b - ebal D / 2 * a;
+                blyadskiy x_one = (0 - b + D) / (2 * a);
+                blyadskiy x_two = (0 - b - D) / (2 * a);
                 pokazhi(x_one);
                 pokazhi(x_two);
                 otday 0;
@@ -28,9 +29,9 @@ ebal main() {
         blyadskiy a = 0;
         blyadskiy b = 0;
         blyadskiy c = 0;
-        vozmi(a)
-        vozmi(b)
-        vozmi(c)
+        vozmi(a);
+        vozmi(b);
+        vozmi(c);
         blyadskiy status = solve_quadratic_equation(a, b, c);
         otday 0;
 }

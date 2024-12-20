@@ -11,8 +11,8 @@
 jmp skip_diskriminant:
 diskriminant:
         push [bx + 1] ;b
-        push [bx + 1] ;b
-        mul
+        push 2
+        pow
         push 4
         push [bx + 0] ;a
         mul
@@ -98,25 +98,77 @@ reshi_pozhaluysta_kvadratnoe:
                 push ax
 
                 pop [bx + 3] ;D
-        ;assignment to koren
+        ;if condition
                 push [bx + 3] ;D
-                sqrt
-                pop [bx + 4] ;koren
+                push 0
+                ja _cmp_t_2:
+                push 0  ;true
+                jmp _cmp_t_end_2:
+
+                _cmp_t_2:
+                push 1  ;false
+                _cmp_t_end_2:
+
+        
+
+        push 0
+        je skip_if_3:
+        ;if body
+                ;assignment to koren
+                        push [bx + 3] ;D
+                        sqrt
+                        pop [bx + 4] ;koren
+                push 0
+                push [bx + 1] ;b
+                sub
+                push [bx + 4] ;koren
+                sub
+                push 2
+                push [bx + 0] ;a
+                mul
+                div
+                out
+                push 0
+                push [bx + 1] ;b
+                sub
+                push [bx + 4] ;koren
+                add
+                push 2
+                push [bx + 0] ;a
+                mul
+                div
+                out
+                push 2
+                pop ax
+                ret
+        skip_if_3:
+        
+
+        ;if condition
+                push [bx + 3] ;D
+                push 0
+                jb _cmp_t_4:
+                push 0  ;true
+                jmp _cmp_t_end_4:
+
+                _cmp_t_4:
+                push 1  ;false
+                _cmp_t_end_4:
+
+        
+
+        push 0
+        je skip_if_5:
+        ;if body
+                push 0
+                pop ax
+                ret
+        skip_if_5:
+        
+
         push 0
         push [bx + 1] ;b
         sub
-        push [bx + 4] ;koren
-        sub
-        push 2
-        push [bx + 0] ;a
-        mul
-        div
-        out
-        push 0
-        push [bx + 1] ;b
-        sub
-        push [bx + 4] ;koren
-        add
         push 2
         push [bx + 0] ;a
         mul
@@ -134,7 +186,7 @@ reshi_pozhaluysta_uravneniye:
         
 
         push 0
-        je skip_if_2:
+        je skip_if_6:
         ;if body
                 ;START CALLING reshi_pozhaluysta_kvadratnoe
                 ;saving BX
@@ -168,7 +220,7 @@ reshi_pozhaluysta_uravneniye:
 
                 pop ax
                 ret
-        skip_if_2:
+        skip_if_6:
         
 
         ;START CALLING reshi_pozhaluysta_lineinoe

@@ -1,0 +1,7 @@
+ebal main() {
+        blyadskiy huy = sin(4);
+        pokazhi(cos(huy));
+        pokazhi(ebal huy);
+        otday 0;
+}
+

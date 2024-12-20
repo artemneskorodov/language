@@ -2,15 +2,16 @@ blyadskiy counter = 0;
 
 ebal factorial(blyadskiy nomer) {
         counter = counter + 1;
+        blyadskiy nomer_ = nomer - 1;
         reskni(nomer) {
-                otday factorial(nomer - 1) * nomer;
+                otday factorial(nomer_) * nomer;
         }
         otday 1;
 }
 
 ebal main() {
         blyadskiy nomer = 0;
-        vozmi(nomer)
+        vozmi(nomer);
         blyadskiy fact = factorial(nomer);
         pokazhi(fact);
         pokazhi(counter);

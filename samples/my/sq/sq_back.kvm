@@ -1,5 +1,5 @@
 ebal diskriminant(blyadskiy a, blyadskiy b, blyadskiy c) {
-        otday b ^ 2 - 4 * a * c;
+        otday b * b - 4 * a * c;
 }
 
 ebal reshi_pozhaluysta_lineinoe(blyadskiy b, blyadskiy c) {
@@ -16,16 +16,9 @@ ebal reshi_pozhaluysta_lineinoe(blyadskiy b, blyadskiy c) {
 
 ebal reshi_pozhaluysta_kvadratnoe(blyadskiy a, blyadskiy b, blyadskiy c) {
         blyadskiy D = diskriminant(a, b, c);
-        reskni(D > 0) {
-                blyadskiy koren = ebal D;
-                pokazhi(0 - b - koren / 2 * a);
-                pokazhi(0 - b + koren / 2 * a);
-                otday 2;
-        }
-        reskni(D < 0) {
-                otday 0;
-        }
-        pokazhi(0 - b / 2 * a);
+        blyadskiy koren = ebal D;
+        pokazhi(0 - b - koren / 2 * a);
+        pokazhi(0 - b + koren / 2 * a);
         otday 0;
 }
 
@@ -40,9 +33,9 @@ ebal main() {
         blyadskiy a = 0;
         blyadskiy b = 0;
         blyadskiy c = 0;
-        vozmi(a)
-        vozmi(b)
-        vozmi(c)
+        vozmi(a);
+        vozmi(b);
+        vozmi(c);
         blyadskiy num = reshi_pozhaluysta_uravneniye(a, b, c);
         otday num;
 }

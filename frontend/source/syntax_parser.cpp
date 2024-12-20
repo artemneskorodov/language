@@ -752,9 +752,14 @@ language_error_t get_operation(language_t       *ctx,
                             "Operation '%s' expected to have parameter in '()'",
                             KeyWords[(*output)->value.opcode]);
     }
+    (*output)->left = token_position(ctx);
+    _RETURN_IF_ERROR(set_val(token_position(ctx),
+                             NODE_TYPE_OPERATION,
+                             OPCODE(OPERATION_PARAM_LINKER),
+                             NULL, NULL));
     move_next_token(ctx);
     //-----------------------------------------------------------------------//
-    _RETURN_IF_ERROR(get_expression(ctx, &(*output)->left));
+    _RETURN_IF_ERROR(get_expression(ctx, &(*output)->left->left));
     //-----------------------------------------------------------------------//
     if(!is_on_operation(ctx, OPERATION_CLOSE_BRACKET)) {
         return syntax_error(ctx, "I supposed to see ')'");
@@ -832,9 +837,14 @@ language_error_t get_out(language_t       *ctx,
         return syntax_error(ctx,
                             "Expected to see ( after out command.\n");
     }
+    (*output)->left = token_position(ctx);
+    _RETURN_IF_ERROR(set_val(token_position(ctx),
+                             NODE_TYPE_OPERATION,
+                             OPCODE(OPERATION_PARAM_LINKER),
+                             NULL, NULL));
     _RETURN_IF_ERROR(move_next_token(ctx));
     //-----------------------------------------------------------------------//
-    _RETURN_IF_ERROR(get_expression(ctx, &(*output)->left));
+    _RETURN_IF_ERROR(get_expression(ctx, &(*output)->left->left));
     //-----------------------------------------------------------------------//
     if(!is_on_operation(ctx, OPERATION_CLOSE_BRACKET)) {
         return syntax_error(ctx,

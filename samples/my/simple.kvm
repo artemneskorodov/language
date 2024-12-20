@@ -1,0 +1,5 @@
+ebal main() {
+    blyadskiy huy = 4;
+    pokazhi(huy * 0 + 4 / 2 + 10 / 5 * huy * (5 - 5) - 4 * 5 * 6 * 7 * 8 * 9 * 10);
+    otday huy;
+}

@@ -2,8 +2,9 @@ blyadskiy counter = 0;
 
 ebal factorial(blyadskiy nomer) {
         counter = counter + 1;
+        blyadskiy nomer_ = nomer - 1;
         reskni(nomer) {
-                otday factorial(nomer - 1) * nomer;
+                otday factorial(nomer_) * nomer;
         }
         otday 1;
 }

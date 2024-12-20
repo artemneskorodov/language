@@ -11,7 +11,6 @@
 	out
 	hlt
 
-;compiling factorial
 jmp skip_factorial:
 factorial:
         ;assignment to counter
@@ -19,29 +18,39 @@ factorial:
                 push 1
                 add
                 pop [0] ;counter
+        ;assignment to nomer_
+                push [bx + 0] ;nomer
+                push 1
+                sub
+                pop [bx + 1] ;nomer_
         ;if condition
                 push [bx + 0] ;nomer
+        
+
         push 0
         je skip_if_0:
         ;if body
+                ;START CALLING factorial
                 ;saving BX
                 push bx
 
                 ;function parameters
-                        push [bx + 0] ;nomer
-                        push 1
-                        sub
+                        push [bx + 1] ;nomer_
                 
 
                 ;incrementing bx
                 push bx
-                push 1
+                push 2
                 add
                 pop bx
 
                 ;pushing arguments to function
                 pop [bx + 0]
+                
+
                 call factorial:
+                
+
                 ;resetting bx
                 pop bx
                 ;pushing return value to stack
@@ -52,12 +61,13 @@ factorial:
                 pop ax
                 ret
         skip_if_0:
+        
+
         push 1
         pop ax
         ret
 skip_factorial:
 
-;compiling main
 jmp skip_main:
 main:
         ;assignment to nomer
@@ -66,6 +76,7 @@ main:
         in
         pop [bx + 0] ;nomer
         ;assignment to fact
+                ;START CALLING factorial
                 ;saving BX
                 push bx
 
@@ -81,7 +92,11 @@ main:
 
                 ;pushing arguments to function
                 pop [bx + 0]
+                
+
                 call factorial:
+                
+
                 ;resetting bx
                 pop bx
                 ;pushing return value to stack

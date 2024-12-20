@@ -270,7 +270,7 @@ language_error_t to_source_in(language_t *ctx, language_node_t *node) {
     identifier_t *ident = ctx->name_table.identifiers +
                           node->left->left->value.identifier;
     _WRITE_SRC("%.*s", ident->length, ident->name);
-    _WRITE_SRC(")");
+    _WRITE_SRC(");");
 
     return LANGUAGE_SUCCESS;
 }
