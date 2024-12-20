@@ -62,6 +62,7 @@ skip_reshi_pozhaluysta_lineinoe:
 jmp skip_reshi_pozhaluysta_kvadratnoe:
 reshi_pozhaluysta_kvadratnoe:
         ;assignment to D
+                ;START CALLING diskriminant
                 ;saving BX
                 push bx
 
@@ -169,6 +170,7 @@ reshi_pozhaluysta_uravneniye:
         push 0
         je skip_if_6:
         ;if body
+                ;START CALLING reshi_pozhaluysta_kvadratnoe
                 ;saving BX
                 push bx
 
@@ -197,6 +199,7 @@ reshi_pozhaluysta_uravneniye:
                 pop ax
                 ret
         skip_if_6:
+        ;START CALLING reshi_pozhaluysta_lineinoe
         ;saving BX
         push bx
 
@@ -243,6 +246,7 @@ main:
         in
         pop [bx + 2] ;c
         ;assignment to num
+                ;START CALLING reshi_pozhaluysta_uravneniye
                 ;saving BX
                 push bx
 

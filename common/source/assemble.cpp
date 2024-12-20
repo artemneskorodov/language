@@ -110,6 +110,9 @@ language_error_t compile_function_call(language_t      *ctx,
     identifier_t    *ident = ctx->name_table.identifiers +
                              node->value.identifier;
     language_node_t *param = node->left;
+    _CMD_WRITE(";START CALLING %.*s",
+               (int)ident->length,
+               ident->name                     );
     //-----------------------------------------------------------------------//
     _CMD_WRITE(";saving BX"                    );
     _CMD_WRITE("push bx\r\n"                   );
