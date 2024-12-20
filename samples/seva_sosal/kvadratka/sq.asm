@@ -11,9 +11,11 @@
 ;compiling solve_linear
 jmp skip_solve_linear:
 solve_linear:
-        push [bx + 1] ;c
+        ;if condition
+                push [bx + 1] ;c
         push 0
         je skip_if_0:
+        ;if body
                 push 0
                 push [bx + 0] ;b
                 sub
@@ -46,9 +48,11 @@ skip_discriminant:
 ;compiling solve_quadratic_equation
 jmp skip_solve_quadratic_equation:
 solve_quadratic_equation:
-        push [bx + 0] ;a
+        ;if condition
+                push [bx + 0] ;a
         push 0
         je skip_if_1:
+        ;if body
                 ;saving BX
                 push bx
 

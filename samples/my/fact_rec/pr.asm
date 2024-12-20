@@ -1,5 +1,6 @@
-push 0
-pop [0] ;counter
+;assignment to counter
+        push 0
+        pop [0] ;counter
 ;setting bx value to global variables number
 	push 1
 	pop bx
@@ -13,14 +14,16 @@ pop [0] ;counter
 ;compiling factorial
 jmp skip_factorial:
 factorial:
-        push [0] ;counter
-        push 1
-        add
-        pop [0] ;counter
-        push [bx + 0] ;nomer
+        ;assignment to counter
+                push [0] ;counter
+                push 1
+                add
+                pop [0] ;counter
+        ;if condition
+                push [bx + 0] ;nomer
         push 0
         je skip_if_0:
-                push [bx + 0] ;nomer
+        ;if body
                 ;saving BX
                 push bx
 
@@ -44,6 +47,7 @@ factorial:
                 ;pushing return value to stack
                 push ax
 
+                push [bx + 0] ;nomer
                 mul
                 pop ax
                 ret
@@ -56,32 +60,34 @@ skip_factorial:
 ;compiling main
 jmp skip_main:
 main:
-        push 0
-        pop [bx + 0] ;nomer
+        ;assignment to nomer
+                push 0
+                pop [bx + 0] ;nomer
         in
         pop [bx + 0] ;nomer
-        ;saving BX
-        push bx
+        ;assignment to fact
+                ;saving BX
+                push bx
 
-        ;function parameters
-                push [bx + 0] ;nomer
-        
+                ;function parameters
+                        push [bx + 0] ;nomer
+                
 
-        ;incrementing bx
-        push bx
-        push 1
-        add
-        pop bx
+                ;incrementing bx
+                push bx
+                push 1
+                add
+                pop bx
 
-        ;pushing arguments to function
-        pop [bx + 0]
-        call factorial:
-        ;resetting bx
-        pop bx
-        ;pushing return value to stack
-        push ax
+                ;pushing arguments to function
+                pop [bx + 0]
+                call factorial:
+                ;resetting bx
+                pop bx
+                ;pushing return value to stack
+                push ax
 
-        pop [bx + 1] ;fact
+                pop [bx + 1] ;fact
         push [bx + 1] ;fact
         out
         push [0] ;counter
