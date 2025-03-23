@@ -290,15 +290,15 @@ static const keyword_t KeyWords[] = {
     {STR_LEN("{"        ), OPERATION_BODY_START   , NULL                     , NULL  , false, NULL                     , 0, NULL        },
     {STR_LEN("}"        ), OPERATION_BODY_END     , NULL                     , NULL  , false, NULL                     , 0, NULL        },
     {STR_LEN(";"        ), OPERATION_STATEMENT    , assemble_statements_line , NULL  , false, to_source_statements_line, 0, NULL        },
-    {STR_LEN("reskni"   ), OPERATION_IF           , assemble_if              , NULL  , false, to_source_if             , 0, NULL        }, //TODO simplification
-    {STR_LEN("dohuya"   ), OPERATION_WHILE        , assemble_while           , NULL  , false, to_source_while          , 0, NULL        },
-    {STR_LEN("otday"    ), OPERATION_RETURN       , assemble_return          , NULL  , false, to_source_return         , 0, NULL        },
+    {STR_LEN("if"       ), OPERATION_IF           , assemble_if              , NULL  , false, to_source_if             , 0, NULL        }, //TODO simplification
+    {STR_LEN("while"    ), OPERATION_WHILE        , assemble_while           , NULL  , false, to_source_while          , 0, NULL        },
+    {STR_LEN("return"   ), OPERATION_RETURN       , assemble_return          , NULL  , false, to_source_return         , 0, NULL        },
     {STR_LEN(","        ), OPERATION_PARAM_LINKER , assemble_params_line     , NULL  , false, to_source_params_line    , 0, NULL        },
-    {STR_LEN("blyadskiy"), OPERATION_NEW_VAR      , assemble_new_var         , NULL  , false, to_source_new_var        , 0, NULL        },
-    {STR_LEN("ebal"     ), OPERATION_NEW_FUNC     , assemble_new_func        , NULL  , false, to_source_new_func       , 0, NULL        },
-    {STR_LEN("vozmi"    ), OPERATION_IN           , assemble_in              , NULL  , false, to_source_in             , 0, NULL        },
-    {STR_LEN("pokazhi"  ), OPERATION_OUT          , assemble_out             , NULL  , false, to_source_out            , 0, NULL        },
-    {STR_LEN("pososi"   ), OPERATION_CALL         , assemble_call            , NULL  , false, to_source_call           , 0, NULL        },
+    {STR_LEN("var"      ), OPERATION_NEW_VAR      , assemble_new_var         , NULL  , false, to_source_new_var        , 0, NULL        },
+    {STR_LEN("func"     ), OPERATION_NEW_FUNC     , assemble_new_func        , NULL  , false, to_source_new_func       , 0, NULL        },
+    {STR_LEN("input"    ), OPERATION_IN           , assemble_in              , NULL  , false, to_source_in             , 0, NULL        },
+    {STR_LEN("output"   ), OPERATION_OUT          , assemble_out             , NULL  , false, to_source_out            , 0, NULL        },
+    {STR_LEN("call"     ), OPERATION_CALL         , assemble_call            , NULL  , false, to_source_call           , 0, NULL        },
     //TODO
     {STR_LEN("ExitKPM"  ),OPERATION_PROGRAM_END   , assemble_exit            , NULL  , false, to_source_exit           , 0, NULL        },
 };

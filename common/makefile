@@ -44,7 +44,7 @@ OBJECTS:=$(addsuffix .o,$(addprefix ${BINDIR}/,$(basename $(notdir ${SOURCE}))))
 all: ${OBJECTS}
 
 ${OBJECTS}: ${SOURCE} ${BINDIR}
-	$(foreach SRC,${SOURCE},$(shell clang -c ${SRC} ${FLAGS} -o $(addsuffix .o,$(addprefix ${BINDIR}/,$(basename $(notdir ${SRC}))))))
+	$(foreach SRC,${SOURCE},$(shell g++ -c ${SRC} ${FLAGS} -o $(addsuffix .o,$(addprefix ${BINDIR}/,$(basename $(notdir ${SRC}))))))
 clean:
 	$(foreach OBJ,${OBJECTS}, $(shell rm ${OBJ}))
 	rmdir ${BINDIR}
