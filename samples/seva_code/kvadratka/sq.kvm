@@ -1,0 +1,38 @@
+func solve_linear(var b_seva, var c_seva) {
+        if(c_seva) {
+                var x_seva_tnf = 0 - c_seva / b_seva;
+                output(x_seva_tnf);
+                return 0;
+        }
+        return 0;
+}
+
+func discriminant(var a, var b, var c) {
+        return b * b - 4 * a * c;
+}
+
+func solve_quadratic_equation(var a, var b, var c) {
+        reskni(a) {
+                var D = discriminant(a, b, c);
+                var x_one = (0 - b + D) / (2 * a);
+                var x_two = (0 - b - D) / (2 * a);
+                output(x_one);
+                output(x_two);
+                return 0;
+        }
+        var x = solve_linear(b, c);
+        output(x);
+        return 0;
+}
+
+func main() {
+        var a = 0;
+        var b = 0;
+        var c = 0;
+        input(a);
+        input(b);
+        input(c);
+        var status = solve_quadratic_equation(a, b, c);
+        return 0;
+}
+

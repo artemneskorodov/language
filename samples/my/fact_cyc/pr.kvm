@@ -1,14 +1,14 @@
-ebal factorial(blyadskiy nomer) {
-    blyadskiy otvet = 1;
-    dohuya(nomer > 0) {
+func factorial(var nomer) {
+    var otvet = 1;
+    while(nomer > 0) {
         otvet = otvet * nomer;
         nomer = nomer - 1;
     }
-    otday otvet;
+    return otvet;
 }
 
-ebal main() {
-    blyadskiy nomer = 0;
-    vozmi(nomer);
-    otday factorial(nomer);
+func main() {
+    var nomer = 0;
+    input(nomer);
+    return factorial(nomer);
 }

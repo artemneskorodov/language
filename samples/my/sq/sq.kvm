@@ -1,43 +1,43 @@
 
-ebal diskriminant(blyadskiy a, blyadskiy b, blyadskiy c) {
+func diskriminant(var a, var b, var c) {
     otday b * b - 4 * a * c;
 }
 
-ebal reshi_pozhaluysta_lineinoe(blyadskiy b, blyadskiy c) {
-    reskni(b) {
-        pokazhi(0 - c / b);
-        otday 1;
+func reshi_pozhaluysta_lineinoe(var b, var c) {
+    if(b) {
+        output(0 - c / b);
+        return 1;
     }
-    reskni(c) {
-        otday 0;
+    if(c) {
+        return 0;
     }
-    pokazhi(1488);
-    otday 211;
+    output(1488);
+    return 211;
 }
 
-ebal reshi_pozhaluysta_kvadratnoe(blyadskiy a, blyadskiy b, blyadskiy c) {
-    blyadskiy D = diskriminant(a, b, c);
-    blyadskiy koren = sqrt(D);
-    pokazhi((0 - b - koren) / (2 * a));
-    pokazhi((0 - b + koren) / (2 * a));
-    otday 0;
+func reshi_pozhaluysta_kvadratnoe(var a, var b, var c) {
+    var D = diskriminant(a, b, c);
+    var koren = sqrt(D);
+    output((0 - b - koren) / (2 * a));
+    output((0 - b + koren) / (2 * a));
+    return 0;
 }
 
-ebal reshi_pozhaluysta_uravneniye(blyadskiy a, blyadskiy b, blyadskiy c) {
-    reskni(a) {
-        otday reshi_pozhaluysta_kvadratnoe(a, b, c);
+func reshi_pozhaluysta_uravneniye(var a, var b, var c) {
+    if(a) {
+        return reshi_pozhaluysta_kvadratnoe(a, b, c);
     }
-    otday reshi_pozhaluysta_lineinoe(b, c);
+    return reshi_pozhaluysta_lineinoe(b, c);
 }
 
-ebal main () {
-    blyadskiy a = 0;
-    blyadskiy b = 0;
-    blyadskiy c = 0;
-    vozmi(a);
-    vozmi(b);
-    vozmi(c);
+func main () {
+    var a = 0;
+    var b = 0;
+    var c = 0;
+    input(a);
+    input(b);
+    input(c);
 
-    blyadskiy num = reshi_pozhaluysta_uravneniye(a, b, c);
-    otday num;
+    var num = reshi_pozhaluysta_uravneniye(a, b, c);
+    return num;
 }
