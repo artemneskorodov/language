@@ -70,7 +70,7 @@ language_error_t set_memory_addr(language_t      *ctx,
     if(index >= ctx->name_table.size) {
         print_error("Node index is bigger that name table size.\n");
     }
-    ctx->name_table.identifiers[index].memory_addr = addr;
+    ctx->name_table.identifiers[index].memory_addr = (long)addr;
     return LANGUAGE_SUCCESS;
 }
 

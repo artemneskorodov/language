@@ -4,6 +4,7 @@
 //===========================================================================//
 
 #include <stdio.h>
+#include <stdint.h>
 
 //===========================================================================//
 
@@ -45,9 +46,15 @@ enum language_error_t {
     LANGUAGE_ROOT_NULL               = 33,
     LANGUAGE_BROKEN_NAME_TABLE_ELEM  = 34,
     LANGUAGE_RULES_NULL              = 35,
+    LANGUAGE_UNEXPECTED_IR_INSTR     = 36,
+    LANGUAGE_NOT_IMPLEMENTED         = 37,
+    LANGUAGE_NO_STD_FUNC             = 38,
+    LANGUAGE_UNEXPECTED_MACHINE_FLAG = 39,
+    LANGUAGE_UNEXPECTED_MACHINE      = 40,
+    LANGUAGE_BROKEN_ASM_TABLE        = 41,
 };
 
-//===========================================================================//
+//---------------------------------------------------------------------------//
 
 enum node_type_t {
     NODE_TYPE_OPERATION              = 1,
@@ -55,7 +62,7 @@ enum node_type_t {
     NODE_TYPE_IDENTIFIER             = 3,
 };
 
-//===========================================================================//
+//---------------------------------------------------------------------------//
 
 enum operation_t {
     OPERATION_UNKNOWN                = 0,
@@ -88,6 +95,100 @@ enum operation_t {
     OPERATION_PROGRAM_END            = 26,
 };
 
+//---------------------------------------------------------------------------//
+
+enum default_reg_t {
+    REGISTER_RIP                     = 0,
+    REGISTER_RAX                     = 1,
+    REGISTER_RCX                     = 2,
+    REGISTER_RDX                     = 3,
+    REGISTER_RBX                     = 4,
+    REGISTER_RSP                     = 5,
+    REGISTER_RBP                     = 6,
+    REGISTER_RSI                     = 7,
+    REGISTER_RDI                     = 8,
+    REGISTER_R8                      = 9,
+    REGISTER_R9                      = 10,
+    REGISTER_R10                     = 11,
+    REGISTER_R11                     = 12,
+    REGISTER_R12                     = 13,
+    REGISTER_R13                     = 14,
+    REGISTER_R14                     = 15,
+    REGISTER_R15                     = 16,
+};
+
+//---------------------------------------------------------------------------//
+
+enum xmm_reg_t {
+    REGISTER_XMM0                    = 1,
+    REGISTER_XMM1                    = 2,
+    REGISTER_XMM2                    = 3,
+    REGISTER_XMM3                    = 4,
+    REGISTER_XMM4                    = 5,
+    REGISTER_XMM5                    = 6,
+    REGISTER_XMM6                    = 7,
+    REGISTER_XMM7                    = 8,
+    REGISTER_XMM8                    = 9,
+    REGISTER_XMM9                    = 10,
+    REGISTER_XMM10                   = 11,
+    REGISTER_XMM11                   = 12,
+    REGISTER_XMM12                   = 13,
+    REGISTER_XMM13                   = 14,
+    REGISTER_XMM14                   = 15,
+    REGISTER_XMM15                   = 16,
+};
+
+//---------------------------------------------------------------------------//
+
+enum ir_instr_t {
+    IR_INSTR_ADD                     = 1,
+    IR_INSTR_SUB                     = 2,
+    IR_INSTR_MUL                     = 3,
+    IR_INSTR_DIV                     = 4,
+    IR_INSTR_PUSH                    = 5,
+    IR_INSTR_POP                     = 6,
+    IR_INSTR_MOV                     = 7,
+    IR_INSTR_CALL                    = 8,
+    IR_INSTR_CMPL                    = 9,
+    IR_INSTR_CMPEQ                   = 10,
+    IR_INSTR_TEST                    = 11,
+    IR_INSTR_JZ                      = 12,
+    IR_INSTR_JMP                     = 13,
+    IR_INSTR_RET                     = 14,
+    IR_INSTR_SYSCALL                 = 15,
+    IR_INSTR_XOR                     = 16,
+    IR_CONTROL_JMP                   = 17,
+    IR_CONTROL_FUNC                  = 18,
+    IR_INSTR_SQRT                    = 19,
+    IR_INSTR_NOT                     = 20,
+};
+
+//---------------------------------------------------------------------------//
+
+enum arg_type_t {
+    ARG_TYPE_INVALID                 = 0,
+    ARG_TYPE_IMM                     = 1,
+    ARG_TYPE_REG                     = 2,
+    ARG_TYPE_XMM                     = 3,
+    ARG_TYPE_CST                     = 4,
+    ARG_TYPE_MEM                     = 5,
+};
+
+//---------------------------------------------------------------------------//
+
+enum identifier_type_t {
+    IDENTIFIER_VARIABLE              = 1,
+    IDENTIFIER_FUNCTION              = 2,
+};
+
+//---------------------------------------------------------------------------//
+
+enum machine_t {
+    MACHINE_SPU                      = 1,
+    MACHINE_ASM_X86                  = 2,
+    MACHINE_ELF_X86                  = 3,
+};
+
 //===========================================================================//
 
 union value_t {
@@ -96,7 +197,7 @@ union value_t {
     operation_t                      opcode;
 };
 
-//===========================================================================//
+//---------------------------------------------------------------------------//
 
 struct source_info_t {
     const char                      *name;
@@ -104,7 +205,7 @@ struct source_info_t {
     size_t                           line;
 };
 
-//===========================================================================//
+//---------------------------------------------------------------------------//
 
 struct language_node_t {
     source_info_t                    source_info;
@@ -114,14 +215,7 @@ struct language_node_t {
     language_node_t                 *right;
 };
 
-//===========================================================================//
-
-enum identifier_type_t {
-    IDENTIFIER_VARIABLE              = 1,
-    IDENTIFIER_FUNCTION              = 2,
-};
-
-//===========================================================================//
+//---------------------------------------------------------------------------//
 
 struct identifier_t {
     const char                      *name;
@@ -129,18 +223,22 @@ struct identifier_t {
     identifier_type_t                type;
     size_t                           parameters_number;
     bool                             is_defined;
-    size_t                           memory_addr;
+    long                             memory_addr;
     bool                             is_global;
+    double                           init_value;
 };
 
-//===========================================================================//
+//---------------------------------------------------------------------------//
 
 struct name_t {
     size_t                           length;
     const char                      *name;
 };
 
-//===========================================================================//
+#define _NAME(_string) (name_t){.length = sizeof(_string) - 1,                \
+                                .name = (_string)}                            \
+
+//---------------------------------------------------------------------------//
 
 struct name_table_t {
     identifier_t                    *identifiers;
@@ -152,7 +250,7 @@ struct name_table_t {
     size_t                           used_names_size;
 };
 
-//===========================================================================//
+//---------------------------------------------------------------------------//
 
 struct nodes_storage_t {
     language_node_t                 *nodes;
@@ -160,7 +258,7 @@ struct nodes_storage_t {
     size_t                           capacity;
 };
 
-//===========================================================================//
+//---------------------------------------------------------------------------//
 
 struct frontend_info_t {
     language_node_t                 *position;
@@ -168,7 +266,46 @@ struct frontend_info_t {
     size_t                           used_locals;
 };
 
-//===========================================================================//
+//---------------------------------------------------------------------------//
+
+
+struct memory_arg_t {
+    default_reg_t                    base;
+    long                             offset;
+};
+
+//---------------------------------------------------------------------------//
+
+struct ir_arg_t {
+    arg_type_t                       type;
+    union {
+        default_reg_t                reg;
+        xmm_reg_t                    xmm;
+        long                         imm;
+        memory_arg_t                 mem;
+        void                        *custom;
+    };
+};
+
+//---------------------------------------------------------------------------//
+
+struct ir_node_t {
+    ir_instr_t                       instruction;
+    ir_arg_t                         first;
+    ir_arg_t                         second;
+    ir_node_t                       *next;
+    ir_node_t                       *prev;
+};
+
+//---------------------------------------------------------------------------//
+
+struct fixup_t {
+    size_t                           position;
+    size_t                           id_index;
+    size_t                           rip;
+};
+
+//---------------------------------------------------------------------------//
 
 struct backend_info_t {
     size_t                           used_globals;
@@ -176,22 +313,32 @@ struct backend_info_t {
     size_t                           used_locals;
     int                              scope;
     FILE                            *output;
+    ir_node_t                       *nodes;
+    ir_node_t                       *free;
+    size_t                           ir_size;
+    size_t                           ir_capacity;
+    fixup_t                         *fixups;
+    size_t                           fixups_size;
+    size_t                           fixups_capacity;
+    uint8_t                         *buffer;
+    size_t                           buffer_size;
+    size_t                           buffer_capacity;
 };
 
-//===========================================================================//
+//---------------------------------------------------------------------------//
 
 struct frontstart_info_t {
     FILE                            *output;
     int                              depth;
 };
 
-//===========================================================================//
+//---------------------------------------------------------------------------//
 
 struct middleend_info_t {
     size_t                           changes_counter;
 };
 
-//===========================================================================//
+//---------------------------------------------------------------------------//
 
 struct dump_info_t {
     FILE                            *general_dump;
@@ -200,7 +347,7 @@ struct dump_info_t {
     size_t                           current_scope;
 };
 
-//===========================================================================//
+//---------------------------------------------------------------------------//
 
 struct language_t {
     dump_info_t                      dump_info;
@@ -216,6 +363,7 @@ struct language_t {
     middleend_info_t                 middleend_info;
     const char                      *input_file;
     const char                      *output_file;
+    machine_t                        machine_flag;
 };
 
 //===========================================================================//
@@ -223,6 +371,25 @@ struct language_t {
 #define NUMBER(_value) (value_t){.number     = (_value)}
 #define OPCODE(_value) (value_t){.opcode     = (_value)}
 #define IDENT(_value)  (value_t){.identifier = (_value)}
+
+//---------------------------------------------------------------------------//
+
+#define _REG(_value)         (ir_arg_t){.type = ARG_TYPE_REG,                 \
+                                        .reg  = (_value)}                     \
+
+#define _XMM(_value)         (ir_arg_t){.type = ARG_TYPE_XMM,                 \
+                                        .xmm  = (_value)}                     \
+
+#define _IMM(_value)         (ir_arg_t){.type = ARG_TYPE_IMM,                 \
+                                        .imm  = (long)(_value)}               \
+
+#define _MEM(_base, _offset) (ir_arg_t){.type = ARG_TYPE_MEM,                 \
+                                        .mem  = (memory_arg_t)                \
+                                            {.base   = (_base),               \
+                                             .offset = (long)(_offset)}}      \
+
+#define _CUSTOM(_value)      (ir_arg_t){.type = ARG_TYPE_CST,                 \
+                                        .custom = (void *)(_value)}           \
 
 //===========================================================================//
 
@@ -250,7 +417,8 @@ language_error_t verify_keywords    (void);
 
 //===========================================================================//
 
-#include "assemble.h"
+#include "asm_x86.h"
+#include "asm_spu.h"
 #include "to_source.h"
 #include "simplify_rules.h"
 
@@ -260,7 +428,8 @@ struct keyword_t {
     const char                      *name;
     size_t                           length;
     operation_t                      code;
-    language_error_t               (*assemble)(language_t *, language_node_t *);
+    language_error_t               (*asm_spu)(language_t *, language_node_t *);
+    language_error_t               (*asm_x86)(language_t *, language_node_t *);
     const char                      *assembler_command;
     bool                             is_expression_element;
     language_error_t               (*to_source)(language_t *, language_node_t *);
@@ -274,33 +443,32 @@ struct keyword_t {
 
 static const keyword_t KeyWords[] = {
     {/*______________________________THIS_FIELD_MUST_BE_HERE_AS_IT_IS_FOR_UNKNOWN_COMMAND______________________________*/},
-    {STR_LEN("+"        ), OPERATION_ADD          , assemble_two_args        , "add" , false, to_source_math_op        , 3, simplify_add},
-    {STR_LEN("-"        ), OPERATION_SUB          , assemble_two_args        , "sub" , false, to_source_math_op        , 3, simplify_sub},
-    {STR_LEN("*"        ), OPERATION_MUL          , assemble_two_args        , "mul" , false, to_source_math_op        , 2, simplify_mul},
-    {STR_LEN("/"        ), OPERATION_DIV          , assemble_two_args        , "div" , false, to_source_math_op        , 2, simplify_div},
-    {STR_LEN("cos"      ), OPERATION_COS          , assemble_one_arg         , "cos" , true , to_source_math_func      , 0, NULL        },
-    {STR_LEN("sin"      ), OPERATION_SIN          , assemble_one_arg         , "sin" , true , to_source_math_func      , 0, NULL        },
-    {STR_LEN("sqrt"     ), OPERATION_SQRT         , assemble_one_arg         , "sqrt", true , to_source_new_func       , 0, NULL        },
-    {STR_LEN("^"        ), OPERATION_POW          , assemble_two_args        , "pow" , false, to_source_math_op        , 1, simplify_pow},
-    {STR_LEN(">"        ), OPERATION_BIGGER       , assemble_comparison      , "ja"  , false, to_source_math_op        , 4, NULL        },
-    {STR_LEN("<"        ), OPERATION_SMALLER      , assemble_comparison      , "jb"  , false, to_source_math_op        , 4, NULL        },
-    {STR_LEN("="        ), OPERATION_ASSIGNMENT   , assemble_assignment      , NULL  , false, to_source_math_op        , 4, NULL        },
-    {STR_LEN("("        ), OPERATION_OPEN_BRACKET , NULL                     , NULL  , false, NULL                     , 0, NULL        },
-    {STR_LEN(")"        ), OPERATION_CLOSE_BRACKET, NULL                     , NULL  , false, NULL                     , 0, NULL        },
-    {STR_LEN("{"        ), OPERATION_BODY_START   , NULL                     , NULL  , false, NULL                     , 0, NULL        },
-    {STR_LEN("}"        ), OPERATION_BODY_END     , NULL                     , NULL  , false, NULL                     , 0, NULL        },
-    {STR_LEN(";"        ), OPERATION_STATEMENT    , assemble_statements_line , NULL  , false, to_source_statements_line, 0, NULL        },
-    {STR_LEN("if"       ), OPERATION_IF           , assemble_if              , NULL  , false, to_source_if             , 0, NULL        }, //TODO simplification
-    {STR_LEN("while"    ), OPERATION_WHILE        , assemble_while           , NULL  , false, to_source_while          , 0, NULL        },
-    {STR_LEN("return"   ), OPERATION_RETURN       , assemble_return          , NULL  , false, to_source_return         , 0, NULL        },
-    {STR_LEN(","        ), OPERATION_PARAM_LINKER , assemble_params_line     , NULL  , false, to_source_params_line    , 0, NULL        },
-    {STR_LEN("var"      ), OPERATION_NEW_VAR      , assemble_new_var         , NULL  , false, to_source_new_var        , 0, NULL        },
-    {STR_LEN("func"     ), OPERATION_NEW_FUNC     , assemble_new_func        , NULL  , false, to_source_new_func       , 0, NULL        },
-    {STR_LEN("input"    ), OPERATION_IN           , assemble_in              , NULL  , false, to_source_in             , 0, NULL        },
-    {STR_LEN("output"   ), OPERATION_OUT          , assemble_out             , NULL  , false, to_source_out            , 0, NULL        },
-    {STR_LEN("call"     ), OPERATION_CALL         , assemble_call            , NULL  , false, to_source_call           , 0, NULL        },
-    //TODO
-    {STR_LEN("ExitKPM"  ),OPERATION_PROGRAM_END   , assemble_exit            , NULL  , false, to_source_exit           , 0, NULL        },
+    {STR_LEN("+"        ), OPERATION_ADD          , spu_assemble_two_args   , x86_assemble_two_args   , "add" , false, to_source_math_op        , 3, simplify_add},
+    {STR_LEN("-"        ), OPERATION_SUB          , spu_assemble_two_args   , x86_assemble_two_args   , "sub" , false, to_source_math_op        , 3, simplify_sub},
+    {STR_LEN("*"        ), OPERATION_MUL          , spu_assemble_two_args   , x86_assemble_two_args   , "mul" , false, to_source_math_op        , 2, simplify_mul},
+    {STR_LEN("/"        ), OPERATION_DIV          , spu_assemble_two_args   , x86_assemble_two_args   , "div" , false, to_source_math_op        , 2, simplify_div},
+    {STR_LEN("cos"      ), OPERATION_COS          , spu_assemble_one_arg    , x86_assemble_one_arg    , "cos" , true , to_source_math_func      , 0, NULL        },
+    {STR_LEN("sin"      ), OPERATION_SIN          , spu_assemble_one_arg    , x86_assemble_one_arg    , "sin" , true , to_source_math_func      , 0, NULL        },
+    {STR_LEN("sqrt"     ), OPERATION_SQRT         , spu_assemble_one_arg    , x86_assemble_one_arg    , "sqrt", true , to_source_new_func       , 0, NULL        },
+    {STR_LEN("^"        ), OPERATION_POW          , spu_assemble_two_args   , x86_assemble_two_args   , "pow" , false, to_source_math_op        , 1, simplify_pow},
+    {STR_LEN(">"        ), OPERATION_BIGGER       , spu_assemble_comparison , x86_assemble_comparison , "ja"  , false, to_source_math_op        , 4, NULL        },
+    {STR_LEN("<"        ), OPERATION_SMALLER      , spu_assemble_comparison , x86_assemble_comparison , "jb"  , false, to_source_math_op        , 4, NULL        },
+    {STR_LEN("="        ), OPERATION_ASSIGNMENT   , spu_assemble_assignment , x86_assemble_assignment , NULL  , false, to_source_math_op        , 4, NULL        },
+    {STR_LEN("("        ), OPERATION_OPEN_BRACKET , NULL                    , NULL                    , NULL  , false, NULL                     , 0, NULL        },
+    {STR_LEN(")"        ), OPERATION_CLOSE_BRACKET, NULL                    , NULL                    , NULL  , false, NULL                     , 0, NULL        },
+    {STR_LEN("{"        ), OPERATION_BODY_START   , NULL                    , NULL                    , NULL  , false, NULL                     , 0, NULL        },
+    {STR_LEN("}"        ), OPERATION_BODY_END     , NULL                    , NULL                    , NULL  , false, NULL                     , 0, NULL        },
+    {STR_LEN(";"        ), OPERATION_STATEMENT    , spu_assemble_statements , x86_assemble_statements , NULL  , false, to_source_statements_line, 0, NULL        },
+    {STR_LEN("if"       ), OPERATION_IF           , spu_assemble_if         , x86_assemble_if         , NULL  , false, to_source_if             , 0, NULL        }, //TODO simplification
+    {STR_LEN("while"    ), OPERATION_WHILE        , spu_assemble_while      , x86_assemble_while      , NULL  , false, to_source_while          , 0, NULL        },
+    {STR_LEN("return"   ), OPERATION_RETURN       , spu_assemble_return     , x86_assemble_return     , NULL  , false, to_source_return         , 0, NULL        },
+    {STR_LEN(","        ), OPERATION_PARAM_LINKER , spu_assemble_params_line, x86_assemble_params_line, NULL  , false, to_source_params_line    , 0, NULL        },
+    {STR_LEN("var"      ), OPERATION_NEW_VAR      , spu_assemble_new_var    , x86_assemble_new_var    , NULL  , false, to_source_new_var        , 0, NULL        },
+    {STR_LEN("func"     ), OPERATION_NEW_FUNC     , spu_assemble_new_func   , x86_assemble_new_func   , NULL  , false, to_source_new_func       , 0, NULL        },
+    {STR_LEN("input"    ), OPERATION_IN           , spu_assemble_in         , x86_assemble_in         , NULL  , false, to_source_in             , 0, NULL        },
+    {STR_LEN("output"   ), OPERATION_OUT          , spu_assemble_out        , x86_assemble_out        , NULL  , false, to_source_out            , 0, NULL        },
+    {STR_LEN("call"     ), OPERATION_CALL         , spu_assemble_call       , x86_assemble_call       , NULL  , false, to_source_call           , 0, NULL        },
+    {STR_LEN("ExitKPM"  ),OPERATION_PROGRAM_END   , spu_assemble_exit       , x86_assemble_exit       , NULL  , false, to_source_exit           , 0, NULL        },
 };
 
 #undef STR_LEN

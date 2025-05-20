@@ -45,6 +45,10 @@ language_error_t to_source_subtree(language_t *ctx, language_node_t *node) {
             _RETURN_IF_ERROR(KeyWords[node->value.opcode].to_source(ctx, node));
             break;
         }
+        default: {
+            print_error("Unexpected node type.");
+            return LANGUAGE_UNEXPECTED_NODE_TYPE;
+        }
     }
     return LANGUAGE_SUCCESS;
 }
@@ -314,8 +318,8 @@ language_error_t to_source_exit(language_t *ctx, language_node_t *node) {
 //===========================================================================//
 
 bool is_bigger_priority(language_node_t *node, language_node_t *child) {
-    _C_ASSERT(node  != NULL, return LANGUAGE_NODE_NULL);
-    _C_ASSERT(child != NULL, return LANGUAGE_NODE_NULL);
+    _C_ASSERT(node  != NULL, return false);
+    _C_ASSERT(child != NULL, return false);
     //-----------------------------------------------------------------------//
     if(child->type == NODE_TYPE_IDENTIFIER || child->type == NODE_TYPE_NUMBER) {
         return false;
@@ -347,8 +351,6 @@ bool is_leaf(language_node_t *node) {
 language_error_t write_source(language_t *ctx, const char *format, ...) {
     _C_ASSERT(ctx    != NULL, return LANGUAGE_CTX_NULL          );
     _C_ASSERT(format != NULL, return LANGUAGE_STRING_FORMAT_NULL);
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wformat-nonliteral"
     va_list args;
     va_start(args, format);
     if(vfprintf(ctx->frontstart_info.output, format, args) < 0) {
@@ -356,7 +358,6 @@ language_error_t write_source(language_t *ctx, const char *format, ...) {
     }
     fflush(ctx->frontstart_info.output);
     va_end(args);
-#pragma clang diagnostic pop
     return LANGUAGE_SUCCESS;
 }
 

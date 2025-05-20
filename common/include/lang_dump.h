@@ -19,6 +19,8 @@ language_error_t dump_tree  (language_t    *ctx,
 
 language_error_t dump_dtor  (language_t    *ctx);
 
+language_error_t dump_ir    (language_t    *ctx);
+
 //===========================================================================//
 
 #endif

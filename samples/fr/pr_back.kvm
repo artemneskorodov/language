@@ -1,0 +1,20 @@
+var counter = 0;
+
+func factorial(var nomer) {
+        counter = counter + 1;
+        var nomer_ = nomer - 1;
+        if(nomer) {
+                return factorial(nomer_) * nomer;
+        }
+        return 1;
+}
+
+func main() {
+        var nomer = 0;
+        input(nomer);
+        var fact = factorial(nomer);
+        output(fact);
+        output(counter);
+        return fact;
+}
+

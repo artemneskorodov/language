@@ -39,6 +39,11 @@ static language_error_t handler_input    (language_t       *ctx,
                                           size_t            position,
                                           const char       *argv[]);
 
+static language_error_t handler_machine  (language_t       *ctx,
+                                          int               argc,
+                                          size_t            position,
+                                          const char       *argv[]);
+
 static language_error_t skip_spaces      (language_t       *ctx);
 
 static language_error_t write_subtree    (language_t       *ctx,
@@ -105,8 +110,9 @@ static language_error_t get_bool         (language_t        *ctx,
 //===========================================================================//
 
 static const flag_prototype_t SupportedFlags[] = {
-    {"-o", "--output", 1, handler_output},
-    {"-i", "--input" , 1, handler_input }
+    {"-o", "--output" , 1, handler_output },
+    {"-i", "--input"  , 1, handler_input  },
+    {"-m", "--machine", 1, handler_machine},
 };
 
 //===========================================================================//
@@ -226,7 +232,7 @@ language_error_t read_name_table(language_t *ctx) {
         return LANGUAGE_UNKNOWN_CODE_TREE_TYPE;
     }
     //-----------------------------------------------------------------------//
-    _RETURN_IF_ERROR(name_table_ctor(ctx, name_table_size));
+    _RETURN_IF_ERROR(name_table_ctor(ctx, name_table_size + 2));
     ctx->input_position = length_end;
     for(size_t elem = 0; elem < name_table_size; elem++) {
         //-------------------------------------------------------------------//
@@ -661,6 +667,25 @@ language_error_t handler_output(language_t *ctx,
     _C_ASSERT(ctx != NULL, return LANGUAGE_CTX_NULL);
     //-----------------------------------------------------------------------//
     ctx->output_file = argv[position + 1];
+    return LANGUAGE_SUCCESS;
+}
+
+//===========================================================================//
+
+language_error_t handler_machine(language_t       *ctx,
+                                 int             /*argc*/,
+                                 size_t            position,
+                                 const char       *argv[]) {
+    _C_ASSERT(ctx != NULL, return LANGUAGE_CTX_NULL);
+    //-----------------------------------------------------------------------//
+    const char *machine_flags[] = {"spu", "asm", "elf"};
+    size_t flags_num = sizeof(machine_flags) / sizeof(machine_flags[0]);
+    for(size_t i = 0; i < flags_num; i++) {
+        if(strcmp(machine_flags[i], argv[position + 1]) == 0) {
+            ctx->machine_flag = (machine_t)(i + 1);
+            break;
+        }
+    }
     return LANGUAGE_SUCCESS;
 }
 
