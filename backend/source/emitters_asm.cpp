@@ -65,6 +65,9 @@ static language_error_t write_asm_imm       (language_t *ctx,
 static language_error_t write_asm_stack_xmm (language_t *ctx,
                                              ir_node_t  *node);
 
+static language_error_t write_asm_cst_jmp   (language_t *ctx,
+                                             ir_node_t  *node);
+
 //===========================================================================//
 
 static const name_t GPRNames[] = {
@@ -304,6 +307,7 @@ language_error_t write_asm_code(language_t *ctx, ir_node_t *node) {
     size_t info_index = (size_t)node->instruction;
     _C_ASSERT(AsmInfos[info_index].ir_instr == node->instruction,
               return LANGUAGE_BROKEN_ASM_TABLE);
+    //-----------------------------------------------------------------------//
     const instr_info_t *instr_info = AsmInfos[info_index].instr_info;
 
     arg_type_t type_first  = node->first.type;
@@ -320,19 +324,23 @@ language_error_t write_asm_code(language_t *ctx, ir_node_t *node) {
         print_error("Unexpected args types for node.");
         return LANGUAGE_UNEXPECTED_IR_INSTR;
     }
+    //-----------------------------------------------------------------------//
     const sup_args_t *arg = instr_info->supported_args + args_index;
     if(arg->name != NULL) {
-        _RETURN_IF_ERROR(buffer_write_string(ctx,arg->name, arg->len));
+        _RETURN_IF_ERROR(buffer_write_string(ctx, arg->name, arg->len));
         _RETURN_IF_ERROR(buffer_write_byte(ctx, ' '));
     }
+    //-----------------------------------------------------------------------//
     if(node->first.type != ARG_TYPE_INVALID) {
         _RETURN_IF_ERROR(write_asm_operand(ctx, node, &node->first));
     }
+    //-----------------------------------------------------------------------//
     if(node->second.type != ARG_TYPE_INVALID) {
         _RETURN_IF_ERROR(buffer_write_byte(ctx, ','));
         _RETURN_IF_ERROR(buffer_write_byte(ctx, ' '));
         _RETURN_IF_ERROR(write_asm_operand(ctx, node, &node->second));
     }
+    //-----------------------------------------------------------------------//
     _RETURN_IF_ERROR(buffer_write_byte(ctx, '\n'));
     return LANGUAGE_SUCCESS;
 }
@@ -342,6 +350,10 @@ language_error_t write_asm_code(language_t *ctx, ir_node_t *node) {
 language_error_t write_asm_operand(language_t *ctx,
                                    ir_node_t  *node,
                                    ir_arg_t   *operand) {
+    _C_ASSERT(ctx     != NULL, return LANGUAGE_CTX_NULL  );
+    _C_ASSERT(node    != NULL, return LANGUAGE_NODE_NULL );
+    _C_ASSERT(operand != NULL, return LANGUAGE_INPUT_NULL);
+    //-----------------------------------------------------------------------//
     switch(operand->type) {
         case ARG_TYPE_INVALID: {
             print_error("It is not expected that INVALID parameter "
@@ -369,21 +381,30 @@ language_error_t write_asm_operand(language_t *ctx,
             return LANGUAGE_UNKNOWN_NODE_TYPE;
         }
     }
+    //-----------------------------------------------------------------------//
 }
 
 //===========================================================================//
 
 language_error_t write_asm_imm(language_t *ctx, ir_arg_t *arg) {
+    _C_ASSERT(ctx != NULL, return LANGUAGE_CTX_NULL );
+    _C_ASSERT(arg != NULL, return LANGUAGE_NODE_NULL);
+    //-----------------------------------------------------------------------//
     _RETURN_IF_ERROR(buffer_check_size(ctx, MaxImmSize));
     uint8_t *buffer = ctx->backend_info.buffer + ctx->backend_info.buffer_size;
+
     int size = sprintf((char *)buffer, "0x%lx", (uint64_t)arg->imm);
     ctx->backend_info.buffer_size += (size_t)size;
+    //-----------------------------------------------------------------------//
     return LANGUAGE_SUCCESS;
 }
 
 //===========================================================================//
 
 language_error_t write_asm_reg_xmm(language_t *ctx, ir_arg_t *arg) {
+    _C_ASSERT(ctx != NULL, return LANGUAGE_CTX_NULL );
+    _C_ASSERT(arg != NULL, return LANGUAGE_NODE_NULL);
+    //-----------------------------------------------------------------------//
     const name_t *names_table = NULL;
     if(arg->type == ARG_TYPE_REG) {
         names_table = GPRNames;
@@ -395,53 +416,27 @@ language_error_t write_asm_reg_xmm(language_t *ctx, ir_arg_t *arg) {
         print_error("Unexpected arg type.\n");
         return LANGUAGE_UNEXPECTED_IR_INSTR;
     }
-
+    //-----------------------------------------------------------------------//
     const char *name = names_table[arg->reg - 1].name;
     size_t      len  = names_table[arg->reg - 1].length;
     _RETURN_IF_ERROR(buffer_write_string(ctx, name, len));
+    //-----------------------------------------------------------------------//
     return LANGUAGE_SUCCESS;
 }
 
 //===========================================================================//
 
 language_error_t write_asm_cst(language_t *ctx, ir_node_t *node) {
-    ir_arg_t *arg = &node->first;
+    //-----------------------------------------------------------------------//
     if(node->instruction == IR_INSTR_JMP ||
        node->instruction == IR_INSTR_JZ  ||
        node->instruction == IR_CONTROL_JMP) {
-        size_t label_num = 0;
-
-        if(node->instruction != IR_CONTROL_JMP) {
-            if(arg->custom != NULL) {
-                ir_node_t *label_node = (ir_node_t *)arg->custom;
-                label_num = (size_t)label_node->first.custom;
-            }
-            else {
-                label_num = ctx->backend_info.used_labels++;
-                arg->custom = (void *)label_num;
-            }
-        }
-        else {
-            if(arg->custom != NULL) {
-                ir_node_t *jmp_node = (ir_node_t *)arg->custom;
-                label_num = (size_t)jmp_node->first.custom;
-            }
-            else {
-                label_num = ctx->backend_info.used_labels++;
-                arg->custom = (void *)label_num;
-            }
-        }
-        _RETURN_IF_ERROR(buffer_check_size(ctx, LabelNumSize + 5));
-        uint8_t *buffer = ctx->backend_info.buffer +
-                          ctx->backend_info.buffer_size;
-        sprintf((char *)buffer, ".loc_%0*lu", LabelNumSize, label_num);
-        ctx->backend_info.buffer_size += LabelNumSize + 5;
-        if(node->instruction == IR_CONTROL_JMP) {
-            _RETURN_IF_ERROR(buffer_write_byte(ctx, ':'));
-        }
+        _RETURN_IF_ERROR(write_asm_cst_jmp(ctx, node));
     }
+    //-----------------------------------------------------------------------//
     else if(node->instruction == IR_INSTR_CALL ||
             node->instruction == IR_CONTROL_FUNC) {
+        ir_arg_t *arg = &node->first;
         size_t id_index = (size_t)arg->custom;
         identifier_t *ident = ctx->name_table.identifiers + id_index;
         _RETURN_IF_ERROR(buffer_write_string(ctx, ident->name, ident->length));
@@ -449,10 +444,12 @@ language_error_t write_asm_cst(language_t *ctx, ir_node_t *node) {
             _RETURN_IF_ERROR(buffer_write_byte(ctx, ':'));
         }
     }
+    //-----------------------------------------------------------------------//
     else {
         print_error("Unexpected instruction has custom argument");
         return LANGUAGE_UNEXPECTED_IR_INSTR;
     }
+    //-----------------------------------------------------------------------//
     return LANGUAGE_SUCCESS;
 }
 
@@ -463,11 +460,13 @@ language_error_t write_asm_mem(language_t *ctx, ir_arg_t *arg) {
     _RETURN_IF_ERROR(buffer_write_string(ctx, qword.name,  qword.length ));
     _RETURN_IF_ERROR(buffer_write_byte(ctx, ' '));
     _RETURN_IF_ERROR(buffer_write_byte(ctx, '['));
+    //-----------------------------------------------------------------------//
     if(arg->mem.base != REGISTER_RIP) {
         const char *name = GPRNames[arg->reg - 1].name;
         size_t      len  = GPRNames[arg->reg - 1].length;
         _RETURN_IF_ERROR(buffer_write_string(ctx, name, len));
         _RETURN_IF_ERROR(buffer_write_byte(ctx, ' '));
+        //-------------------------------------------------------------------//
         if(arg->mem.offset >= 0) {
             _RETURN_IF_ERROR(buffer_write_byte(ctx, '+'));
         }
@@ -476,6 +475,7 @@ language_error_t write_asm_mem(language_t *ctx, ir_arg_t *arg) {
             arg->mem.offset *= -1;
         }
         _RETURN_IF_ERROR(buffer_write_byte(ctx, ' '));
+        //-------------------------------------------------------------------//
         _RETURN_IF_ERROR(buffer_check_size(ctx, sizeof(uint32_t) / 4 + 2));
         uint8_t *buffer = ctx->backend_info.buffer +
                           ctx->backend_info.buffer_size;
@@ -483,12 +483,15 @@ language_error_t write_asm_mem(language_t *ctx, ir_arg_t *arg) {
                                       "0x%x",
                                       (uint32_t)arg->mem.offset);
         ctx->backend_info.buffer_size += (size_t)printed_symbols;
+        //-------------------------------------------------------------------//
     }
+    //-----------------------------------------------------------------------//
     else {
         size_t id_index = (size_t)arg->mem.offset;
         identifier_t *ident = ctx->name_table.identifiers + id_index;
         _RETURN_IF_ERROR(buffer_write_string(ctx, ident->name, ident->length));
     }
+    //-----------------------------------------------------------------------//
     _RETURN_IF_ERROR(buffer_write_byte(ctx, ']'));
     return LANGUAGE_SUCCESS;
 }
@@ -502,6 +505,7 @@ language_error_t write_asm_stack_xmm(language_t *ctx, ir_node_t *node) {
                node->instruction == IR_INSTR_POP_XMM) &&
               node->first.type == ARG_TYPE_XMM,
               return LANGUAGE_UNEXPECTED_IR_INSTR);
+    //-----------------------------------------------------------------------//
     if(node->instruction == IR_INSTR_PUSH_XMM) {
         ir_node_t temp_sub_rsp = {
             .instruction = IR_INSTR_SUB,
@@ -520,6 +524,7 @@ language_error_t write_asm_stack_xmm(language_t *ctx, ir_node_t *node) {
         _RETURN_IF_ERROR(write_asm_code(ctx, &temp_sub_rsp));
         _RETURN_IF_ERROR(write_asm_code(ctx, &temp_mov));
     }
+    //-----------------------------------------------------------------------//
     else {
         ir_node_t temp_mov = {
             .instruction = IR_INSTR_SUB,
@@ -538,6 +543,52 @@ language_error_t write_asm_stack_xmm(language_t *ctx, ir_node_t *node) {
         _RETURN_IF_ERROR(write_asm_code(ctx, &temp_mov));
         _RETURN_IF_ERROR(write_asm_code(ctx, &temp_add_rsp));
     }
+    //-----------------------------------------------------------------------//
+    return LANGUAGE_SUCCESS;
+}
+
+//===========================================================================//
+
+language_error_t write_asm_cst_jmp(language_t *ctx,
+                                   ir_node_t  *node) {
+    _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
+    _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
+    //-----------------------------------------------------------------------//
+    size_t label_num = 0;
+    ir_arg_t *arg = &node->first;
+    //-----------------------------------------------------------------------//
+    if(node->instruction != IR_CONTROL_JMP) {
+        if(arg->custom != NULL) {
+            ir_node_t *label_node = (ir_node_t *)arg->custom;
+            label_num = (size_t)label_node->first.custom;
+        }
+        else {
+            label_num = ctx->backend_info.used_labels++;
+            arg->custom = (void *)label_num;
+        }
+    }
+    //-----------------------------------------------------------------------//
+    else {
+        if(arg->custom != NULL) {
+            ir_node_t *jmp_node = (ir_node_t *)arg->custom;
+            label_num = (size_t)jmp_node->first.custom;
+        }
+        else {
+            label_num = ctx->backend_info.used_labels++;
+            arg->custom = (void *)label_num;
+        }
+    }
+    //-----------------------------------------------------------------------//
+    _RETURN_IF_ERROR(buffer_check_size(ctx, LabelNumSize + 5));
+    uint8_t *buffer = ctx->backend_info.buffer +
+                      ctx->backend_info.buffer_size;
+    sprintf((char *)buffer, ".loc_%0*lu", LabelNumSize, label_num);
+    ctx->backend_info.buffer_size += LabelNumSize + 5;
+    //-----------------------------------------------------------------------//
+    if(node->instruction == IR_CONTROL_JMP) {
+        _RETURN_IF_ERROR(buffer_write_byte(ctx, ':'));
+    }
+    //-----------------------------------------------------------------------//
     return LANGUAGE_SUCCESS;
 }
 
