@@ -129,13 +129,13 @@ language_error_t spu_compile_function_call(language_t      *ctx,
     size_t used_locals = ctx->backend_info.used_locals;
     _CMD_WRITE(";incrementing bx"              );
     _CMD_WRITE("push bx"                       );
-    _CMD_WRITE("push " SZ_SP, used_locals      );
+    _CMD_WRITE("push %lu", used_locals         );
     _CMD_WRITE("add"                           );
     _CMD_WRITE("pop bx\r\n"                    );
     //-----------------------------------------------------------------------//
-    _RETURN_IF_ERROR(write_command(ctx, ";pushing arguments to function"));
+    _CMD_WRITE(";pushing arguments to function");
     for(size_t i = ident->parameters_number; i > 0; i--) {
-        _RETURN_IF_ERROR(write_command(ctx, "pop [bx + " SZ_SP "]", i - 1));
+        _CMD_WRITE("pop [bx + " SZ_SP "]", i - 1);
     }
     _CMD_WRITE("\r\n"                          );
     //-----------------------------------------------------------------------//

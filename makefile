@@ -13,5 +13,10 @@ clean:
 		echo "===============" Clearing $$dir "==============="; \
 		$(MAKE) -C $$dir clean; \
 	done
+	rm -rf logs
+	rm -rf bin
 
 rebuild: clean all
+
+del_logs:
+	rm -rf logs

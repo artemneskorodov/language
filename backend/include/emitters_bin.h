@@ -50,25 +50,10 @@ language_error_t emit_control_func  (language_t *ctx,
 language_error_t emit_sqrt          (language_t *ctx,
                                      ir_node_t  *node);
 
-language_error_t emit_mov_mem_xmm   (language_t *ctx,
-                                     ir_node_t  *node);
-
-language_error_t emit_mov_xmm_mem   (language_t *ctx,
-                                     ir_node_t  *node);
-
-language_error_t emit_mov_xmm_reg   (language_t *ctx,
-                                     ir_node_t  *node);
-
-language_error_t emit_mov_reg_xmm   (language_t *ctx,
-                                     ir_node_t  *node);
-
-language_error_t emit_mov_reg_imm   (language_t *ctx,
-                                     ir_node_t  *node);
-
-language_error_t emit_mov_reg_reg   (language_t *ctx,
-                                     ir_node_t  *node);
-
 language_error_t emit_not           (language_t *ctx,
+                                     ir_node_t  *node);
+
+language_error_t emit_stack_xmm     (language_t *ctx,
                                      ir_node_t  *node);
 
 //===========================================================================//

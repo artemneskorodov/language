@@ -24,6 +24,26 @@ static bool             is_extended_reg    (ir_arg_t    *arg);
 static REX_prefix_t     create_rex         (ir_arg_t    *reg,
                                             ir_arg_t    *rm);
 
+language_error_t emit_mov_mem_xmm   (language_t *ctx,
+                                     ir_node_t  *node);
+
+language_error_t emit_mov_xmm_mem   (language_t *ctx,
+                                     ir_node_t  *node);
+
+language_error_t emit_mov_xmm_reg   (language_t *ctx,
+                                     ir_node_t  *node);
+
+language_error_t emit_mov_reg_xmm   (language_t *ctx,
+                                     ir_node_t  *node);
+
+language_error_t emit_mov_reg_imm   (language_t *ctx,
+                                     ir_node_t  *node);
+
+language_error_t emit_mov_rm_reg   (language_t *ctx,
+                                     ir_node_t  *node);
+
+language_error_t emit_mov_reg_mem(language_t *ctx, ir_node_t *node);
+
 //===========================================================================//
 
 static const size_t MaxInstructionSize = 15;
@@ -224,9 +244,10 @@ language_error_t emit_mov(language_t *ctx, ir_node_t *node) {
     _C_ASSERT(node->instruction == IR_INSTR_MOV,
               return LANGUAGE_UNEXPECTED_IR_INSTR);
     //-----------------------------------------------------------------------//
-    if(node->first.type  == ARG_TYPE_REG &&
+    if((node->first.type  == ARG_TYPE_REG ||
+        node->first.type  == ARG_TYPE_MEM) &&
        node->second.type == ARG_TYPE_REG) {
-        return emit_mov_reg_reg(ctx, node);
+        return emit_mov_rm_reg(ctx, node);
     }
     if(node->first.type  == ARG_TYPE_REG &&
        node->second.type == ARG_TYPE_IMM) {
@@ -249,17 +270,19 @@ language_error_t emit_mov(language_t *ctx, ir_node_t *node) {
         return emit_mov_mem_xmm(ctx, node);
     }
     //-----------------------------------------------------------------------//
-    print_error("Mov is not supported");
+    print_error("Mov %d %d is not supported",
+                node->first.type, node->second.type);
     return LANGUAGE_UNEXPECTED_IR_INSTR;
 }
 
 //===========================================================================//
 
-language_error_t emit_mov_reg_reg(language_t *ctx, ir_node_t *node) {
+language_error_t emit_mov_rm_reg(language_t *ctx, ir_node_t *node) {
     _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
     _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
     _C_ASSERT(node->instruction == IR_INSTR_MOV &&
-              node->first.type  == ARG_TYPE_REG &&
+              (node->first.type  == ARG_TYPE_REG ||
+               node->first.type == ARG_TYPE_MEM) &&
               node->second.type == ARG_TYPE_REG,
               return LANGUAGE_UNEXPECTED_IR_INSTR);
     //-----------------------------------------------------------------------//
@@ -274,7 +297,35 @@ language_error_t emit_mov_reg_reg(language_t *ctx, ir_node_t *node) {
     result[pos++] = 0x89;
     //-----------------------------------------------------------------------//
     // ModR/M
-    result[pos++] = create_regs_modrm(&node->second, &node->first).byte;
+    if(node->first.type == ARG_TYPE_REG) {
+        result[pos++] = create_regs_modrm(&node->second, &node->first).byte;
+    }
+    else {
+        ModRM_t modrm = {};
+        if(node->first.mem.base == REGISTER_RIP) {
+            modrm.mod = 0b00;
+            modrm.rm = 0b101;
+            size_t id_index = (size_t)node->first.mem.offset;
+            _RETURN_IF_ERROR(add_fixup(ctx, pos + 1, id_index));
+        }
+        else {
+            modrm.mod = 0b10;
+            modrm.rm = (node->first.mem.base - 1) & 7;
+        }
+        modrm.reg = (node->second.reg - 1) & 7;
+        result[pos++] = modrm.byte;
+
+        if(node->first.mem.base == REGISTER_RSP) {
+            SIB_t sib = {};
+            sib.scale = 0;
+            sib.index = 0b100; // no index
+            sib.base = (REGISTER_RSP - 1) & 7;
+            result[pos++] = sib.byte;
+        }
+
+        *(uint32_t *)(result + pos) = (uint32_t)node->first.mem.offset;
+        pos += 4;
+    }
     //-----------------------------------------------------------------------//
     _RETURN_IF_ERROR(buffer_write(ctx, result, pos));
     return LANGUAGE_SUCCESS;
@@ -784,6 +835,55 @@ language_error_t emit_not(language_t *ctx, ir_node_t  *node) {
     result[pos++] = modrm.byte;
     //-----------------------------------------------------------------------//
     _RETURN_IF_ERROR(buffer_write(ctx, result, pos));
+    return LANGUAGE_SUCCESS;
+}
+
+//===========================================================================//
+
+language_error_t emit_stack_xmm(language_t *ctx, ir_node_t  *node) {
+    _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
+    _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
+    _C_ASSERT((node->instruction == IR_INSTR_PUSH_XMM ||
+               node->instruction == IR_INSTR_POP_XMM) &&
+              node->first.type == ARG_TYPE_XMM,
+              return LANGUAGE_UNEXPECTED_IR_INSTR);
+    //-----------------------------------------------------------------------//
+    if(node->instruction == IR_INSTR_PUSH_XMM) {
+        ir_node_t sub_rsp = {
+            .instruction = IR_INSTR_SUB,
+            .first = _REG(REGISTER_RSP),
+            .second = _IMM(sizeof(double)),
+            .next = NULL,
+            .prev = NULL,
+        };
+        ir_node_t mov = {
+            .instruction = IR_INSTR_MOV,
+            .first = _MEM(REGISTER_RSP, 0),
+            .second = _XMM(node->first.xmm),
+            .next = NULL,
+            .prev = NULL,
+        };
+        _RETURN_IF_ERROR(emit_add_sub(ctx, &sub_rsp));
+        _RETURN_IF_ERROR(emit_mov(ctx, &mov));
+    }
+    else {
+        ir_node_t mov = {
+            .instruction = IR_INSTR_MOV,
+            .first = _XMM(node->first.xmm),
+            .second = _MEM(REGISTER_RSP, 0),
+            .next = NULL,
+            .prev = NULL,
+        };
+        ir_node_t add_rsp = {
+            .instruction = IR_INSTR_ADD,
+            .first = _REG(REGISTER_RSP),
+            .second = _IMM(8),
+            .next = NULL,
+            .prev = NULL,
+        };
+        _RETURN_IF_ERROR(emit_mov(ctx, &mov));
+        _RETURN_IF_ERROR(emit_add_sub(ctx, &add_rsp));
+    }
     return LANGUAGE_SUCCESS;
 }
 

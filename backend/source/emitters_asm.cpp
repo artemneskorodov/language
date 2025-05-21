@@ -1,3 +1,5 @@
+//===========================================================================//
+
 #include "language.h"
 #include "encoder.h"
 #include "emitters_asm.h"
@@ -5,28 +7,65 @@
 #include "colors.h"
 #include "buffer.h"
 
-static const size_t MaxInfoSz = 5 * 5;
-static const size_t MaxImmSize = 64 / 4 + 2;
-static const int LabelNumSize = 8;
+//===========================================================================//
+
+static const size_t MaxInfoSz    = 5 * 5;
+static const size_t MaxImmSize   = 64 / 4 + 2;
+static const int    LabelNumSize = 8;
+
+//===========================================================================//
 
 struct sup_args_t {
-    arg_type_t arg1;
-    arg_type_t arg2;
-    const char *name;
-    size_t len;
+    arg_type_t          arg1;
+    arg_type_t          arg2;
+    const char         *name;
+    size_t              len;
 };
 
-#define _ARGS(_arg1, _arg2, _name) (sup_args_t){.arg1 = (_arg1), .arg2 = (_arg2), .name = (_name), .len = sizeof(_name) - 1}
+//---------------------------------------------------------------------------//
 
 struct instr_info_t {
-    sup_args_t supported_args[MaxInfoSz];
-    size_t supported_size;
+    sup_args_t          supported_args[MaxInfoSz];
+    size_t              supported_size;
+    language_error_t  (*special)(language_t *, ir_node_t *);
 };
 
+//---------------------------------------------------------------------------//
+
 struct all_instr_info_t {
-    ir_instr_t ir_instr;
+    ir_instr_t          ir_instr;
     const instr_info_t *instr_info;
 };
+
+//===========================================================================//
+
+#define _ARGS(_arg1, _arg2, _name) (sup_args_t){.arg1 = (_arg1),              \
+                                                .arg2 = (_arg2),              \
+                                                .name = (_name),              \
+                                                .len  = sizeof(_name) - 1}    \
+
+//===========================================================================//
+
+static language_error_t write_asm_operand   (language_t *ctx,
+                                             ir_node_t  *node,
+                                             ir_arg_t   *operand);
+
+static language_error_t write_asm_mem       (language_t *ctx,
+                                             ir_arg_t   *arg);
+
+static language_error_t write_asm_cst       (language_t *ctx,
+                                             ir_node_t  *node);
+
+static language_error_t write_asm_reg_xmm   (language_t *ctx,
+                                             ir_arg_t   *arg);
+
+static language_error_t write_asm_imm       (language_t *ctx,
+                                             ir_arg_t   *arg);
+
+static language_error_t write_asm_stack_xmm (language_t *ctx,
+                                             ir_node_t  *node);
+
+//===========================================================================//
 
 static const name_t GPRNames[] = {
     _NAME("rax"), _NAME("rcx"), _NAME("rdx"), _NAME("rbx"),
@@ -34,47 +73,69 @@ static const name_t GPRNames[] = {
     _NAME("r8" ), _NAME("r9" ), _NAME("r10"), _NAME("r11"),
     _NAME("r12"), _NAME("r13"), _NAME("r14"), _NAME("r15")};
 
+//---------------------------------------------------------------------------//
+
 static const name_t XMMNames[] = {
     _NAME("xmm0" ), _NAME("xmm1" ), _NAME("xmm2" ), _NAME("xmm3" ),
     _NAME("xmm4" ), _NAME("xmm5" ), _NAME("xmm6" ), _NAME("xmm7" ),
     _NAME("xmm8" ), _NAME("xmm9" ), _NAME("xmm10"), _NAME("xmm11"),
     _NAME("xmm12"), _NAME("xmm13"), _NAME("xmm14"), _NAME("xmm15")};
 
+//---------------------------------------------------------------------------//
+
 static const instr_info_t AddAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_REG, ARG_TYPE_IMM, "add"),
                        _ARGS(ARG_TYPE_REG, ARG_TYPE_REG, "add"),
                        _ARGS(ARG_TYPE_XMM, ARG_TYPE_XMM, "addsd")},
     .supported_size = 3,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
 
 static const instr_info_t SubAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_REG, ARG_TYPE_IMM, "sub"),
                        _ARGS(ARG_TYPE_REG, ARG_TYPE_REG, "sub"),
                        _ARGS(ARG_TYPE_XMM, ARG_TYPE_XMM, "subsd")},
     .supported_size = 3,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
 
 static const instr_info_t MulAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_XMM, ARG_TYPE_XMM, "mulsd")},
     .supported_size = 1,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
 
 static const instr_info_t DivAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_XMM, ARG_TYPE_XMM, "divsd")},
     .supported_size = 1,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
 
 static const instr_info_t PushAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_REG, ARG_TYPE_INVALID, "push"),
                        _ARGS(ARG_TYPE_MEM, ARG_TYPE_INVALID, "push")},
     .supported_size = 2,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
 
 static const instr_info_t PopAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_REG, ARG_TYPE_INVALID, "pop"),
                        _ARGS(ARG_TYPE_MEM, ARG_TYPE_INVALID, "pop")},
     .supported_size = 2,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
 
 static const instr_info_t MovAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_REG, ARG_TYPE_REG, "mov"),
@@ -84,72 +145,130 @@ static const instr_info_t MovAsmInfo = {
                        _ARGS(ARG_TYPE_XMM, ARG_TYPE_MEM, "movq"),
                        _ARGS(ARG_TYPE_MEM, ARG_TYPE_XMM, "movq")},
     .supported_size = 6,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
 
 static const instr_info_t CallAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_CST, ARG_TYPE_INVALID, "call")},
     .supported_size = 1,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
 
 static const instr_info_t CmplAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_XMM, ARG_TYPE_XMM, "cmpltsd")},
     .supported_size = 1,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
 
 static const instr_info_t CmpeqAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_XMM, ARG_TYPE_XMM, "cmpeqsd")},
     .supported_size = 1,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
 
 static const instr_info_t TestAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_REG, ARG_TYPE_REG, "test")},
     .supported_size = 1,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
 
 static const instr_info_t JzAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_CST, ARG_TYPE_INVALID, "jz")},
     .supported_size = 1,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
 
 static const instr_info_t JmpAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_CST, ARG_TYPE_INVALID, "jmp")},
     .supported_size = 1,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
 
 static const instr_info_t RetAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_INVALID, ARG_TYPE_INVALID, "ret")},
     .supported_size = 1,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
 
 static const instr_info_t SyscallAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_INVALID, ARG_TYPE_INVALID, "syscall")},
     .supported_size = 1,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
 
 static const instr_info_t XorAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_XMM, ARG_TYPE_XMM, "xorpd")},
     .supported_size = 1,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
 
 static const instr_info_t ControlJmpAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_CST, ARG_TYPE_INVALID, NULL)},
     .supported_size = 1,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
 
 static const instr_info_t ControlFuncAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_CST, ARG_TYPE_INVALID, NULL)},
     .supported_size = 1,
+    .special = NULL,
 };
 
+//---------------------------------------------------------------------------//
+
 static const instr_info_t SqrtAsmInfo = {
-    .supported_args = {_ARGS(ARG_TYPE_XMM, ARG_TYPE_XMM, NULL)},
+    .supported_args = {_ARGS(ARG_TYPE_XMM, ARG_TYPE_XMM, "sqrtsd")},
     .supported_size = 1,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
 
 static const instr_info_t NotAsmInfo = {
     .supported_args = {_ARGS(ARG_TYPE_REG, ARG_TYPE_INVALID, "not")},
     .supported_size = 1,
+    .special = NULL,
 };
+
+//---------------------------------------------------------------------------//
+
+static const instr_info_t PushXmmAsmInfo = {
+    .supported_args = {_ARGS(ARG_TYPE_XMM, ARG_TYPE_INVALID, NULL)},
+    .supported_size = 1,
+    .special = write_asm_stack_xmm,
+};
+
+//---------------------------------------------------------------------------//
+
+static const instr_info_t PopXmmAsmInfo = {
+    .supported_args = {_ARGS(ARG_TYPE_XMM, ARG_TYPE_INVALID, NULL)},
+    .supported_size = 1,
+    .special = write_asm_stack_xmm,
+};
+
+//---------------------------------------------------------------------------//
 
 static const all_instr_info_t AsmInfos[] = {
     {/* Empty field*/},
@@ -173,13 +292,11 @@ static const all_instr_info_t AsmInfos[] = {
     {IR_CONTROL_FUNC, &ControlFuncAsmInfo},
     {IR_INSTR_SQRT,          &SqrtAsmInfo},
     {IR_INSTR_NOT,            &NotAsmInfo},
+    {IR_INSTR_PUSH_XMM,   &PushXmmAsmInfo},
+    {IR_INSTR_POP_XMM,     &PopXmmAsmInfo}
 };
 
-static language_error_t write_asm_operand(language_t *ctx, ir_node_t *node, ir_arg_t *operand);
-static language_error_t write_asm_mem(language_t *ctx, ir_arg_t *arg);
-static language_error_t write_asm_cst(language_t *ctx, ir_node_t *node);
-static language_error_t write_asm_reg_xmm(language_t *ctx, ir_arg_t *arg);
-static language_error_t write_asm_imm(language_t *ctx, ir_arg_t *arg);
+//===========================================================================//
 
 language_error_t write_asm_code(language_t *ctx, ir_node_t *node) {
     _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
@@ -220,10 +337,15 @@ language_error_t write_asm_code(language_t *ctx, ir_node_t *node) {
     return LANGUAGE_SUCCESS;
 }
 
-language_error_t write_asm_operand(language_t *ctx, ir_node_t *node, ir_arg_t *operand) {
+//===========================================================================//
+
+language_error_t write_asm_operand(language_t *ctx,
+                                   ir_node_t  *node,
+                                   ir_arg_t   *operand) {
     switch(operand->type) {
         case ARG_TYPE_INVALID: {
-            print_error("It is not expected that INVALID parameter of IR node will be treated as operand");
+            print_error("It is not expected that INVALID parameter "
+                        "of IR node will be treated as operand");
             return LANGUAGE_UNEXPECTED_NODE_TYPE;
         }
         case ARG_TYPE_IMM: {
@@ -249,6 +371,8 @@ language_error_t write_asm_operand(language_t *ctx, ir_node_t *node, ir_arg_t *o
     }
 }
 
+//===========================================================================//
+
 language_error_t write_asm_imm(language_t *ctx, ir_arg_t *arg) {
     _RETURN_IF_ERROR(buffer_check_size(ctx, MaxImmSize));
     uint8_t *buffer = ctx->backend_info.buffer + ctx->backend_info.buffer_size;
@@ -256,6 +380,8 @@ language_error_t write_asm_imm(language_t *ctx, ir_arg_t *arg) {
     ctx->backend_info.buffer_size += (size_t)size;
     return LANGUAGE_SUCCESS;
 }
+
+//===========================================================================//
 
 language_error_t write_asm_reg_xmm(language_t *ctx, ir_arg_t *arg) {
     const name_t *names_table = NULL;
@@ -275,6 +401,8 @@ language_error_t write_asm_reg_xmm(language_t *ctx, ir_arg_t *arg) {
     _RETURN_IF_ERROR(buffer_write_string(ctx, name, len));
     return LANGUAGE_SUCCESS;
 }
+
+//===========================================================================//
 
 language_error_t write_asm_cst(language_t *ctx, ir_node_t *node) {
     ir_arg_t *arg = &node->first;
@@ -304,7 +432,8 @@ language_error_t write_asm_cst(language_t *ctx, ir_node_t *node) {
             }
         }
         _RETURN_IF_ERROR(buffer_check_size(ctx, LabelNumSize + 5));
-        uint8_t *buffer = ctx->backend_info.buffer + ctx->backend_info.buffer_size;
+        uint8_t *buffer = ctx->backend_info.buffer +
+                          ctx->backend_info.buffer_size;
         sprintf((char *)buffer, ".loc_%0*lu", LabelNumSize, label_num);
         ctx->backend_info.buffer_size += LabelNumSize + 5;
         if(node->instruction == IR_CONTROL_JMP) {
@@ -327,6 +456,8 @@ language_error_t write_asm_cst(language_t *ctx, ir_node_t *node) {
     return LANGUAGE_SUCCESS;
 }
 
+//===========================================================================//
+
 language_error_t write_asm_mem(language_t *ctx, ir_arg_t *arg) {
     name_t qword = _NAME("qword");
     _RETURN_IF_ERROR(buffer_write_string(ctx, qword.name,  qword.length ));
@@ -346,8 +477,11 @@ language_error_t write_asm_mem(language_t *ctx, ir_arg_t *arg) {
         }
         _RETURN_IF_ERROR(buffer_write_byte(ctx, ' '));
         _RETURN_IF_ERROR(buffer_check_size(ctx, sizeof(uint32_t) / 4 + 2));
-        uint8_t *buffer = ctx->backend_info.buffer + ctx->backend_info.buffer_size;
-        int printed_symbols = sprintf((char *)buffer, "0x%x", (uint32_t)arg->mem.offset);
+        uint8_t *buffer = ctx->backend_info.buffer +
+                          ctx->backend_info.buffer_size;
+        int printed_symbols = sprintf((char *)buffer,
+                                      "0x%x",
+                                      (uint32_t)arg->mem.offset);
         ctx->backend_info.buffer_size += (size_t)printed_symbols;
     }
     else {
@@ -359,24 +493,52 @@ language_error_t write_asm_mem(language_t *ctx, ir_arg_t *arg) {
     return LANGUAGE_SUCCESS;
 }
 
+//===========================================================================//
 
-// language_error_t write_asm_add(language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_sub       (language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_mul       (language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_div       (language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_push      (language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_pop       (language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_mov       (language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_call      (language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_cmpl      (language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_cmpeq     (language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_test      (language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_jz        (language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_jmp       (language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_ret       (language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_syscall   (language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_xor       (language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_cntrl_jmp (language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_cntrl_func(language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_sqrt      (language_t *ctx, ir_node_t *node);
-// language_error_t write_asm_not       (language_t *ctx, ir_node_t *node);
+language_error_t write_asm_stack_xmm(language_t *ctx, ir_node_t *node) {
+    _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
+    _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
+    _C_ASSERT((node->instruction == IR_INSTR_PUSH_XMM ||
+               node->instruction == IR_INSTR_POP_XMM) &&
+              node->first.type == ARG_TYPE_XMM,
+              return LANGUAGE_UNEXPECTED_IR_INSTR);
+    if(node->instruction == IR_INSTR_PUSH_XMM) {
+        ir_node_t temp_sub_rsp = {
+            .instruction = IR_INSTR_SUB,
+            .first = _REG(REGISTER_RSP),
+            .second = _IMM(sizeof(double)),
+            .next = NULL,
+            .prev = NULL,
+        };
+        ir_node_t temp_mov = {
+            .instruction = IR_INSTR_SUB,
+            .first = _MEM(REGISTER_RSP, 0),
+            .second = _XMM(node->first.xmm),
+            .next = NULL,
+            .prev = NULL,
+        };
+        _RETURN_IF_ERROR(write_asm_code(ctx, &temp_sub_rsp));
+        _RETURN_IF_ERROR(write_asm_code(ctx, &temp_mov));
+    }
+    else {
+        ir_node_t temp_mov = {
+            .instruction = IR_INSTR_SUB,
+            .first = _XMM(node->first.xmm),
+            .second = _MEM(REGISTER_RSP, 0),
+            .next = NULL,
+            .prev = NULL,
+        };
+        ir_node_t temp_add_rsp = {
+            .instruction = IR_INSTR_ADD,
+            .first = _REG(REGISTER_RSP),
+            .second = _IMM(sizeof(double)),
+            .next = NULL,
+            .prev = NULL,
+        };
+        _RETURN_IF_ERROR(write_asm_code(ctx, &temp_mov));
+        _RETURN_IF_ERROR(write_asm_code(ctx, &temp_add_rsp));
+    }
+    return LANGUAGE_SUCCESS;
+}
+
+//===========================================================================//

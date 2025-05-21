@@ -98,20 +98,16 @@ language_error_t x86_compile_identifier(language_t      *ctx,
             break;
         }
         case IDENTIFIER_VARIABLE: {
+            memory_arg_t mem = {};
             if(!ident->is_global) {
-                ir_add_node(ctx, IR_INSTR_MOV,
-                            _XMM(REGISTER_XMM0),
-                            _MEM(REGISTER_RBP, 8 * ident->memory_addr));
+                mem.base   = REGISTER_RBP;
+                mem.offset = 8 * ident->memory_addr;
             }
             else {
-                ir_add_node(ctx, IR_INSTR_MOV,
-                            _XMM(REGISTER_XMM0),
-                            _MEM(REGISTER_RIP, node->value.identifier));
+                mem.base   = REGISTER_RIP;
+                mem.offset = (long)node->value.identifier;
             }
-            ir_add_node(ctx, IR_INSTR_SUB,
-                        _REG(REGISTER_RSP), _IMM(8));
-            ir_add_node(ctx, IR_INSTR_MOV,
-                        _MEM(REGISTER_RSP, 0), _XMM(REGISTER_XMM0));
+            ir_add_node(ctx, IR_INSTR_PUSH, _MEM(mem.base, mem.offset), (ir_arg_t){});
             break;
         }
         default: {
@@ -140,10 +136,7 @@ language_error_t x86_compile_function_call(language_t      *ctx,
     ir_add_node(ctx, IR_INSTR_ADD,
                 _REG(REGISTER_RSP), _IMM(8 * ident->parameters_number));
     // Pushing return value to stack
-    ir_add_node(ctx, IR_INSTR_SUB,
-                _REG(REGISTER_RSP), _IMM(8));
-    ir_add_node(ctx, IR_INSTR_MOV,
-                _MEM(REGISTER_RSP, 0), _XMM(REGISTER_XMM0));
+    ir_add_node(ctx, IR_INSTR_PUSH_XMM, _XMM(REGISTER_XMM0), (ir_arg_t){});
     //-----------------------------------------------------------------------//
     return LANGUAGE_SUCCESS;
 }
@@ -160,12 +153,8 @@ language_error_t x86_assemble_two_args(language_t      *ctx,
     _RETURN_IF_ERROR(x86_compile_subtree(ctx, node->right));
     //-----------------------------------------------------------------------//
     // Getting left and right values from stack
-    ir_add_node(ctx, IR_INSTR_MOV,
-                _XMM(REGISTER_XMM0), _MEM(REGISTER_RSP, 8));
-    ir_add_node(ctx, IR_INSTR_MOV,
-                _XMM(REGISTER_XMM1), _MEM(REGISTER_RSP, 0));
-    ir_add_node(ctx, IR_INSTR_ADD,
-                _REG(REGISTER_RSP), _IMM(8));
+    ir_add_node(ctx, IR_INSTR_POP_XMM, _XMM(REGISTER_XMM1), (ir_arg_t){});
+    ir_add_node(ctx, IR_INSTR_POP_XMM, _XMM(REGISTER_XMM0), (ir_arg_t){});
     ir_instr_t instruction = (ir_instr_t)0;
     if(node->value.opcode == OPERATION_ADD) {
         instruction = IR_INSTR_ADD;
@@ -186,8 +175,7 @@ language_error_t x86_assemble_two_args(language_t      *ctx,
     // Running instruction and pushing result to stack
     ir_add_node(ctx, instruction,
                 _XMM(REGISTER_XMM0), _XMM(REGISTER_XMM1));
-    ir_add_node(ctx, IR_INSTR_MOV,
-                _MEM(REGISTER_RSP, 0), _XMM(REGISTER_XMM0));
+    ir_add_node(ctx, IR_INSTR_PUSH_XMM, _XMM(REGISTER_XMM0), (ir_arg_t){});
     //-----------------------------------------------------------------------//
     return LANGUAGE_SUCCESS;
 }
@@ -204,12 +192,10 @@ language_error_t x86_assemble_one_arg(language_t      *ctx,
     //-----------------------------------------------------------------------//
     // Getting result from stack, calculating instruction value and pushing
     if(is_node_oper_eq(node, OPERATION_SQRT)) {
-        ir_add_node(ctx, IR_INSTR_MOV,
-                    _XMM(REGISTER_XMM0), _MEM(REGISTER_RSP, 0));
+        ir_add_node(ctx, IR_INSTR_POP_XMM, _XMM(REGISTER_XMM0), (ir_arg_t){});
         ir_add_node(ctx, IR_INSTR_SQRT,
                     _XMM(REGISTER_XMM0), _XMM(REGISTER_XMM0));
-        ir_add_node(ctx, IR_INSTR_MOV,
-                    _MEM(REGISTER_RSP, 0), _XMM(REGISTER_XMM0));
+        ir_add_node(ctx, IR_INSTR_PUSH_XMM, _XMM(REGISTER_XMM0), (ir_arg_t){});
     }
     else {
         print_error("Sorry, cos, sin and pow are not implemented for x86");
@@ -231,12 +217,8 @@ language_error_t x86_assemble_comparison(language_t      *ctx,
     _RETURN_IF_ERROR(x86_compile_subtree(ctx, node->right));
     //-----------------------------------------------------------------------//
     // Getting left and right values from stack to XMM0 and XMM1
-    ir_add_node(ctx, IR_INSTR_MOV,
-                _XMM(REGISTER_XMM0), _MEM(REGISTER_RSP, 8));
-    ir_add_node(ctx, IR_INSTR_MOV,
-                _XMM(REGISTER_XMM1), _MEM(REGISTER_RSP, 0));
-    ir_add_node(ctx, IR_INSTR_ADD,
-                _REG(REGISTER_RSP), _IMM(16));
+    ir_add_node(ctx, IR_INSTR_POP_XMM, _XMM(REGISTER_XMM1), (ir_arg_t){});
+    ir_add_node(ctx, IR_INSTR_POP_XMM, _XMM(REGISTER_XMM0), (ir_arg_t){});
     // Comparing left and right values, depending on operation and moving result
     // to RAX
     if(is_node_oper_eq(node, OPERATION_SMALLER)) {
@@ -370,10 +352,7 @@ language_error_t x86_assemble_return(language_t      *ctx,
     _RETURN_IF_ERROR(x86_compile_subtree(ctx, node->left));
     //-----------------------------------------------------------------------//
     // Return value in XMM0
-    ir_add_node(ctx, IR_INSTR_MOV,
-                _XMM(REGISTER_XMM0), _MEM(REGISTER_RSP, 0));
-    ir_add_node(ctx, IR_INSTR_ADD,
-                _REG(REGISTER_RSP), _IMM(8));
+    ir_add_node(ctx, IR_INSTR_POP_XMM, _XMM(REGISTER_XMM0), (ir_arg_t){});
     // Deleting locals from stack
     ir_add_node(ctx, IR_INSTR_ADD,
                 _REG(REGISTER_RSP), _IMM(8 * ctx->backend_info.used_locals));
@@ -559,8 +538,7 @@ language_error_t x86_assemble_out(language_t      *ctx,
     _RETURN_IF_ERROR(x86_compile_subtree(ctx, node->left->left));
     //-----------------------------------------------------------------------//
     // Moving parameter to XMM0
-    ir_add_node(ctx, IR_INSTR_MOV, _XMM(REGISTER_XMM0), _MEM(REGISTER_RSP, 0));
-    ir_add_node(ctx, IR_INSTR_ADD, _REG(REGISTER_RSP), _IMM(8));
+    ir_add_node(ctx, IR_INSTR_POP_XMM, _XMM(REGISTER_XMM0), (ir_arg_t){});
     //-----------------------------------------------------------------------//
     ir_add_node(ctx, IR_INSTR_CALL, _CUSTOM(id_index), (ir_arg_t){});
     //-----------------------------------------------------------------------//
@@ -600,10 +578,7 @@ language_error_t compile_cmp_zero(language_t *ctx) {
     _C_ASSERT(ctx != NULL, return LANGUAGE_CTX_NULL);
     //-----------------------------------------------------------------------//
     // Getting last value from stack
-    ir_add_node(ctx, IR_INSTR_MOV,
-                _XMM(REGISTER_XMM0), _MEM(REGISTER_RSP, 0));
-    ir_add_node(ctx, IR_INSTR_ADD,
-                _REG(REGISTER_RSP), _IMM(8));
+    ir_add_node(ctx, IR_INSTR_POP_XMM, _XMM(REGISTER_XMM0), (ir_arg_t){});
     // Setting XMM1 to 0
     ir_add_node(ctx, IR_INSTR_XOR,
                 _XMM(REGISTER_XMM1), _XMM(REGISTER_XMM1));

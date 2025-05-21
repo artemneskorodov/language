@@ -15,6 +15,7 @@
 #include "custom_assert.h"
 #include "buffer.h"
 #include "encoder.h"
+#include "optimize_ir.h"
 
 //===========================================================================//
 
@@ -25,6 +26,7 @@ static const size_t ElfHeadersSize        = sizeof(Elf64_Ehdr) +
 static const size_t BaseLoadingAddress    = 0x400000;
 static const size_t SectionsAlignment     = 0x1000;
 static const size_t MaxDoubleLength       = 64;
+static const size_t MaxSystemCommandSize  = 256;
 
 //===========================================================================//
 
@@ -46,14 +48,15 @@ static language_error_t find_func_id_index         (language_t    *ctx,
                                                     size_t         len,
                                                     size_t        *output);
 
-static language_error_t set_std_memory_addrs       (language_t    *ctx,
-                                                    size_t         funcs_sz);
-
 static language_error_t global_vars_init           (language_t    *ctx);
 
 static language_error_t fixup_headers_sizes        (language_t    *ctx,
                                                     size_t         text_size,
                                                     size_t         data_size);
+
+static language_error_t global_vars_write_text     (language_t    *ctx);
+
+static language_error_t global_vars_write_bin      (language_t    *ctx);
 
 //===========================================================================//
 
@@ -92,53 +95,39 @@ language_error_t compile_elf(language_t *ctx) {
     ir_add_node(ctx, IR_INSTR_MOV, _REG(REGISTER_RDI), _REG(REGISTER_RAX));
     ir_add_node(ctx, IR_INSTR_MOV, _REG(REGISTER_RAX), _IMM(0x3C));
     ir_add_node(ctx, IR_INSTR_SYSCALL, (ir_arg_t){}, (ir_arg_t){});
-    //-----------------------------------------------------------------------//
     // Compiling functions
     _RETURN_IF_ERROR(compile_only(ctx, OPERATION_NEW_FUNC));
-    dump_ir(ctx);
+    _RETURN_IF_ERROR(optimize_ir(ctx));
     //-----------------------------------------------------------------------//
-    //Writing functions .text section
+    //Writing compiled functions and stdlib in .text section
     _RETURN_IF_ERROR(create_elf_headers(ctx));
     _RETURN_IF_ERROR(encode_ir(ctx));
-    size_t func_end_pos = ctx->backend_info.buffer_size;
-    //-----------------------------------------------------------------------//
-    // Writing stdlib in .text section
     _RETURN_IF_ERROR(write_stdlib(ctx));
     //-----------------------------------------------------------------------//
-    // Sacing .text size and alignment bytes
+    // Saving .text size and alignment, adding alignment bytes
     size_t text_size = ctx->backend_info.buffer_size - ElfHeadersSize;
     size_t alignment = (SectionsAlignment -
                         text_size % SectionsAlignment) % SectionsAlignment;
-    //-----------------------------------------------------------------------//
-    // Getting stdlib functions address from read bytes
-    _RETURN_IF_ERROR(set_std_memory_addrs(ctx, func_end_pos));
-    //-----------------------------------------------------------------------//
     // Adding alignment to text section
     text_size += alignment;
     _RETURN_IF_ERROR(buffer_check_size(ctx, alignment));
     ctx->backend_info.buffer_size += alignment;
     //-----------------------------------------------------------------------//
-    // Finding global variables values
+    // Adding global variables addresses and adding their init in .data
     _RETURN_IF_ERROR(global_vars_init(ctx));
     size_t data_size = ctx->backend_info.used_globals * sizeof(double);
+    _RETURN_IF_ERROR(global_vars_write_bin(ctx));
     //-----------------------------------------------------------------------//
-    // Adding global variables addresses and adding their init in .data
-    for(size_t i = 0; i < ctx->name_table.size; i++) {
-        identifier_t *ident = ctx->name_table.identifiers + i;
-        if(ident->is_global) {
-            ident->memory_addr = current_rip(ctx);
-            uint64_t value = (uint64_t)ident->init_value;
-            _RETURN_IF_ERROR(buffer_write_qword(ctx, value));
-        }
-    }
-    //-----------------------------------------------------------------------//
-    // Fixing functions addresses and global variable addresses
+    // Fixing functions and global variables addresses, changing sizes in
+    // program headers
     _RETURN_IF_ERROR(run_fixups(ctx));
-    //-----------------------------------------------------------------------//
-    //Changing sizes and offsets in program headers
     _RETURN_IF_ERROR(fixup_headers_sizes(ctx, text_size, data_size));
     //-----------------------------------------------------------------------//
+    // Writing output to file
     _RETURN_IF_ERROR(buffer_reset(ctx));
+    char command[MaxSystemCommandSize] = {};
+    snprintf(command, MaxSystemCommandSize, "chmod +x %s", ctx->output_file);
+    system(command);
     return LANGUAGE_SUCCESS;
 }
 
@@ -210,23 +199,8 @@ language_error_t compile_nasm(language_t *ctx) {
     _RETURN_IF_ERROR(buffer_write_string(ctx,
                                          data_section.name,
                                          data_section.length));
-    for(size_t i = 0; i < ctx->name_table.size; i++) {
-        identifier_t *ident = ctx->name_table.identifiers + i;
-        if(ident->is_global) {
-            _RETURN_IF_ERROR(buffer_write_string(ctx,
-                                                 ident->name,
-                                                 ident->length));
-            _RETURN_IF_ERROR(buffer_write_byte(ctx, ' '));
-            _RETURN_IF_ERROR(buffer_write_byte(ctx, 'd'));
-            _RETURN_IF_ERROR(buffer_write_byte(ctx, 'q'));
-            _RETURN_IF_ERROR(buffer_write_byte(ctx, ' '));
-            _RETURN_IF_ERROR(buffer_check_size(ctx, MaxDoubleLength));
-            uint8_t *buffer = ctx->backend_info.buffer + ctx->backend_info.buffer_size;
-            int printed_symbols = snprintf((char *)buffer, MaxDoubleLength, "%.1f", ident->init_value);
-            ctx->backend_info.buffer_size += (size_t)printed_symbols;
-            _RETURN_IF_ERROR(buffer_write_byte(ctx, '\n'));
-        }
-    }
+    _RETURN_IF_ERROR(global_vars_write_text(ctx));
+    //-----------------------------------------------------------------------//
     _RETURN_IF_ERROR(buffer_reset(ctx));
     return LANGUAGE_SUCCESS;
 }
@@ -292,12 +266,40 @@ language_error_t write_stdlib(language_t *ctx) {
     }
     //-----------------------------------------------------------------------//
     size_t size = file_size(stdlib_file);
-    _RETURN_IF_ERROR(buffer_check_size(ctx, size));
+    language_error_t error_code = buffer_check_size(ctx, size);
+    if(error_code != LANGUAGE_SUCCESS) {
+        fclose(stdlib_file);
+        return error_code;
+    }
     uint8_t *read_dst = ctx->backend_info.buffer + ctx->backend_info.buffer_size;
     if(fread(read_dst, sizeof(uint8_t), size, stdlib_file) != size) {
+        fclose(stdlib_file);
         print_error("Error while reading stdlib file to buffer.");
+        return LANGUAGE_READING_STDLIB_ERROR;
     }
+    //-----------------------------------------------------------------------//
+    size_t funcs_size = ctx->backend_info.buffer_size;
     ctx->backend_info.buffer_size += size;
+    //-----------------------------------------------------------------------//
+    uint32_t *addresses = (uint32_t *)(ctx->backend_info.buffer +
+                                       funcs_size);
+    size_t std_in_rip  = addresses[0] + funcs_size - ElfHeadersSize;
+    size_t std_out_rip = addresses[1] + funcs_size - ElfHeadersSize;
+
+    size_t std_in_index = 0;
+    size_t std_out_index = 0;
+    _RETURN_IF_ERROR(find_func_id_index(ctx,
+                                        StdInName,
+                                        StdInLen,
+                                        &std_in_index ));
+    _RETURN_IF_ERROR(find_func_id_index(ctx,
+                                        StdOutName,
+                                        StdOutLen,
+                                        &std_out_index));
+    identifier_t *std_in_ident  = ctx->name_table.identifiers + std_in_index;
+    identifier_t *std_out_ident = ctx->name_table.identifiers + std_out_index;
+    std_in_ident->memory_addr  = (long)std_in_rip;
+    std_out_ident->memory_addr = (long)std_out_rip;
     //-----------------------------------------------------------------------//
     return LANGUAGE_SUCCESS;
 }
@@ -506,35 +508,6 @@ language_error_t find_func_id_index(language_t *ctx,
 
 //===========================================================================//
 
-language_error_t set_std_memory_addrs(language_t *ctx,
-                                      size_t      funcs_text_size) {
-    _C_ASSERT(ctx != NULL, return LANGUAGE_CTX_NULL);
-    //-----------------------------------------------------------------------//
-    uint32_t *addresses = (uint32_t *)(ctx->backend_info.buffer +
-                                       funcs_text_size);
-    size_t std_in_rip  = addresses[0] + funcs_text_size - ElfHeadersSize;
-    size_t std_out_rip = addresses[1] + funcs_text_size - ElfHeadersSize;
-
-    size_t std_in_index = 0;
-    size_t std_out_index = 0;
-    _RETURN_IF_ERROR(find_func_id_index(ctx,
-                                        StdInName,
-                                        StdInLen,
-                                        &std_in_index ));
-    _RETURN_IF_ERROR(find_func_id_index(ctx,
-                                        StdOutName,
-                                        StdOutLen,
-                                        &std_out_index));
-    identifier_t *std_in_ident  = ctx->name_table.identifiers + std_in_index;
-    identifier_t *std_out_ident = ctx->name_table.identifiers + std_out_index;
-    std_in_ident->memory_addr  = (long)std_in_rip;
-    std_out_ident->memory_addr = (long)std_out_rip;
-    //-----------------------------------------------------------------------//
-    return LANGUAGE_SUCCESS;
-}
-
-//===========================================================================//
-
 language_error_t global_vars_init(language_t *ctx) {
     _C_ASSERT(ctx != NULL, return LANGUAGE_CTX_NULL);
     //-----------------------------------------------------------------------//
@@ -560,6 +533,16 @@ language_error_t global_vars_init(language_t *ctx) {
             }
         }
         node = node->right;
+    }
+    //-----------------------------------------------------------------------//
+    // Adding initialize values of global variables in .data segment
+    for(size_t i = 0; i < ctx->name_table.size; i++) {
+        identifier_t *ident = ctx->name_table.identifiers + i;
+        if(ident->is_global) {
+            ident->memory_addr = current_rip(ctx);
+            uint64_t value = (uint64_t)ident->init_value;
+            _RETURN_IF_ERROR(buffer_write_qword(ctx, value));
+        }
     }
     //-----------------------------------------------------------------------//
     return LANGUAGE_SUCCESS;
@@ -595,6 +578,49 @@ long current_rip(language_t *ctx) {
     _C_ASSERT(ctx != NULL, return LANGUAGE_CTX_NULL);
     //-----------------------------------------------------------------------//
     return (long)(ctx->backend_info.buffer_size - ElfHeadersSize);
+}
+
+//===========================================================================//
+
+language_error_t global_vars_write_text(language_t *ctx) {
+    for(size_t i = 0; i < ctx->name_table.size; i++) {
+        identifier_t *ident = ctx->name_table.identifiers + i;
+        if(ident->is_global) {
+            _RETURN_IF_ERROR(buffer_write_string(ctx,
+                                                 ident->name,
+                                                 ident->length));
+            _RETURN_IF_ERROR(buffer_write_byte(ctx, ' '));
+            _RETURN_IF_ERROR(buffer_write_byte(ctx, 'd'));
+            _RETURN_IF_ERROR(buffer_write_byte(ctx, 'q'));
+            _RETURN_IF_ERROR(buffer_write_byte(ctx, ' '));
+
+            _RETURN_IF_ERROR(buffer_check_size(ctx, MaxDoubleLength));
+            uint8_t *buffer = ctx->backend_info.buffer +
+                              ctx->backend_info.buffer_size;
+            int printed_symbols = snprintf((char *)buffer,
+                                           MaxDoubleLength,
+                                           "%.1f",
+                                           ident->init_value);
+            ctx->backend_info.buffer_size += (size_t)printed_symbols;
+
+            _RETURN_IF_ERROR(buffer_write_byte(ctx, '\n'));
+        }
+    }
+    return LANGUAGE_SUCCESS;
+}
+
+//===========================================================================//
+
+language_error_t global_vars_write_bin(language_t *ctx) {
+    for(size_t i = 0; i < ctx->name_table.size; i++) {
+        identifier_t *ident = ctx->name_table.identifiers + i;
+        if(ident->is_global) {
+            ident->memory_addr = current_rip(ctx);
+            uint64_t value = (uint64_t)ident->init_value;
+            _RETURN_IF_ERROR(buffer_write_qword(ctx, value));
+        }
+    }
+    return LANGUAGE_SUCCESS;
 }
 
 //===========================================================================//

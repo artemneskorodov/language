@@ -8,3 +8,4 @@ logs/
 middleend/bin/
 bin/
 *.log
+spu_bin/

@@ -1,10 +1,12 @@
 var counter = 0;
 
 func factorial(var nomer) {
+        var unused = 1 + 2 + 3 + 4 + 5 + 6 + 7;
+        var unused_ = (unused + 1 + unused * 7) * 0;
+
         counter = counter + 1;
-        var nomer_ = nomer - 1;
         if(nomer) {
-                return factorial(nomer_) * nomer;
+                return factorial(nomer - 1) * nomer;
         }
         return 1;
 }

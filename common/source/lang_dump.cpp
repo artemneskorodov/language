@@ -265,27 +265,72 @@ const char *get_node_color(language_t *ctx, language_node_t *node) {
 //===========================================================================//
 
 language_error_t dump_ir(language_t *ctx) {
-    ir_node_t *node = ctx->backend_info.nodes[0].next;
-    FILE *dot_file = fopen("logs/ir.dot", "wb");
-
+    char dot_filename[BufferSize] = {};
+    snprintf(dot_filename,
+             BufferSize,
+             "logs/dot/%s%04lx.dot",
+             ctx->dump_info.filename,
+             ctx->dump_info.dumps_number);
+    FILE *dot_file = fopen(dot_filename, "w");
+    if(dot_file == NULL) {
+        print_error("Error while opening dot file.\n");
+        return LANGUAGE_DUMP_FILE_ERROR;
+    }
+    //-----------------------------------------------------------------------//
     fprintf(dot_file,
             "digraph {\n"
+            "rankdir=TB;\n"
             "node[shape = Mrecord, style = filled];\n");
+    ir_node_t *node = ctx->backend_info.nodes[0].next;
+
+    while(node->next != &ctx->backend_info.nodes[0]) {
+        fprintf(dot_file, "node%p->node%p;\n", node, node->next);
+        node = node->next;
+    }
+    node = ctx->backend_info.nodes[0].next;
 
     while(node != &ctx->backend_info.nodes[0]) {
         fprintf(dot_file, "node%p[label = \"%s | ", node, intr_string(node->instruction));
         _RETURN_IF_ERROR(dump_ir_arg(dot_file, &node->first));
         fprintf(dot_file, " | ");
         _RETURN_IF_ERROR(dump_ir_arg(dot_file, &node->second));
-        fprintf(dot_file, "\"]\n");
-        if(node->next != &ctx->backend_info.nodes[0]) {
-            fprintf(dot_file, "node%p->node%p\n", node, node->next);
+        fprintf(dot_file, "\" ");
+        if(node->is_optimized) {
+            fprintf(dot_file, "fillcolor = \"#CCE2A3\"");
+        }
+        fprintf(dot_file, "]\n");
+        if((node->instruction == IR_INSTR_JMP ||
+            node->instruction == IR_INSTR_JZ) &&
+           node->first.custom != NULL) {
+            fprintf(dot_file, "node%p->node%p;\n", node->first.custom, node);
+        }
+        if(node->instruction == IR_CONTROL_JMP &&
+           node->first.custom != NULL) {
+            fprintf(dot_file, "node%p->node%p;\n", node->first.custom, node);
         }
         node = node->next;
     }
     fprintf(dot_file, "}\n");
     fclose(dot_file);
-    system("dot logs/ir.dot -Tpng -o logs/ir.png");
+    char command[BufferSize] = {};
+    snprintf(command,
+             BufferSize,
+             "dot %s -Tsvg -o logs/img/%s%04lx.svg",
+             dot_filename,
+             ctx->dump_info.filename,
+             ctx->dump_info.dumps_number);
+    system(command);
+    //-----------------------------------------------------------------------//
+    fprintf(ctx->dump_info.general_dump, "<h1>");
+    //-----------------------------------------------------------------------//
+    fprintf(ctx->dump_info.general_dump,
+            "</h1><img src = \"img/%s%04lx.svg\">\n",
+            ctx->dump_info.filename,
+            ctx->dump_info.dumps_number);
+    //-----------------------------------------------------------------------//
+    fflush(ctx->dump_info.general_dump);
+    ctx->dump_info.dumps_number++;
+    //-----------------------------------------------------------------------//
     return LANGUAGE_SUCCESS;
 }
 
@@ -304,7 +349,7 @@ language_error_t dump_ir_arg(FILE *dot_file, ir_arg_t *arg) {
                 fprintf(dot_file, "IMM(%ld)", arg->imm);
             }
             else {
-                fprintf(dot_file, "IMM(%f)", (double)arg->imm);
+                fprintf(dot_file, "IMM(%f)", *(double *)&arg->imm);
             }
             break;
         }
@@ -371,6 +416,8 @@ const char *intr_string(ir_instr_t instr) {
         case IR_CONTROL_FUNC : {return "C_func";}
         case IR_INSTR_SQRT   : {return "sqrt";}
         case IR_INSTR_NOT    : {return "not";}
+        case IR_INSTR_PUSH_XMM: {return "pushXMM";}
+        case IR_INSTR_POP_XMM: {return "popXMM";}
         default              : {return NULL;}
     }
 }

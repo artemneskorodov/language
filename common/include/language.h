@@ -52,6 +52,7 @@ enum language_error_t {
     LANGUAGE_UNEXPECTED_MACHINE_FLAG = 39,
     LANGUAGE_UNEXPECTED_MACHINE      = 40,
     LANGUAGE_BROKEN_ASM_TABLE        = 41,
+    LANGUAGE_READING_STDLIB_ERROR    = 42,
 };
 
 //---------------------------------------------------------------------------//
@@ -161,6 +162,8 @@ enum ir_instr_t {
     IR_CONTROL_FUNC                  = 18,
     IR_INSTR_SQRT                    = 19,
     IR_INSTR_NOT                     = 20,
+    IR_INSTR_PUSH_XMM                = 21,
+    IR_INSTR_POP_XMM                 = 22
 };
 
 //---------------------------------------------------------------------------//
@@ -295,6 +298,7 @@ struct ir_node_t {
     ir_arg_t                         second;
     ir_node_t                       *next;
     ir_node_t                       *prev;
+    bool                             is_optimized;
 };
 
 //---------------------------------------------------------------------------//

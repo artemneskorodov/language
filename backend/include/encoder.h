@@ -81,7 +81,9 @@ static const emitter_t IREmitters[] = {
     {IR_CONTROL_JMP,    emit_fix_jmp     },
     {IR_CONTROL_FUNC,   emit_control_func},
     {IR_INSTR_SQRT,     emit_sqrt        },
-    {IR_INSTR_NOT,      emit_not         }
+    {IR_INSTR_NOT,      emit_not         },
+    {IR_INSTR_PUSH_XMM, emit_stack_xmm   },
+    {IR_INSTR_POP_XMM,  emit_stack_xmm   },
 };
 
 language_error_t encode_ir      (language_t *ctx);

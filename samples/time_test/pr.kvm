@@ -1,0 +1,20 @@
+func fibonachi(var num) {
+    if(num > 2) {
+        var fib_n = fibonachi(num - 1);
+        var fib_nn = fibonachi(num - 2);
+        return fib_n + fib_nn;
+    }
+    return 1;
+}
+
+func main() {
+    var num = 10;
+    var iters = 100000;
+    var result = 0;
+    while(iters) {
+        result = fibonachi(num);
+        iters = iters - 1;
+    }
+    output(result);
+    return 0;
+}
