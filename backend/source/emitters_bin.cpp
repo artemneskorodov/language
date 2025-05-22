@@ -561,7 +561,7 @@ language_error_t emit_call   (language_t *ctx, ir_node_t *node) {
     size_t pos = 0;
     //-----------------------------------------------------------------------//
     // Opcode
-    call[pos++] = 0xE8;
+    call[pos++] = IREmitters[IR_INSTR_CALL].op;
     //-----------------------------------------------------------------------//
     // Call offset
     _RETURN_IF_ERROR(add_fixup(ctx, pos, (size_t)node->first.custom));

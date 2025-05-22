@@ -10,7 +10,7 @@ func factorial(var nomer) {
 func main() {
     var nomer = 0;
     input(nomer);
-    var result = factorial(nomer);
+    var result = factorial(nomer) + (300 + 700);
     output(result);
     return 0;
 }
