@@ -27,7 +27,7 @@ static REX_prefix_t     create_rex         (ir_arg_t    *reg,
 language_error_t emit_mov_mem_xmm   (language_t *ctx,
                                      ir_node_t  *node);
 
-language_error_t emit_mov_xmm_mem   (language_t *ctx,
+language_error_t emit_mov_xmm_xm   (language_t *ctx,
                                      ir_node_t  *node);
 
 language_error_t emit_mov_xmm_reg   (language_t *ctx,
@@ -41,8 +41,6 @@ language_error_t emit_mov_reg_imm   (language_t *ctx,
 
 language_error_t emit_mov_rm_reg   (language_t *ctx,
                                      ir_node_t  *node);
-
-language_error_t emit_mov_reg_mem(language_t *ctx, ir_node_t *node);
 
 //===========================================================================//
 
@@ -262,8 +260,9 @@ language_error_t emit_mov(language_t *ctx, ir_node_t *node) {
         return emit_mov_xmm_reg(ctx, node);
     }
     if(node->first.type  == ARG_TYPE_XMM &&
-       node->second.type == ARG_TYPE_MEM) {
-        return emit_mov_xmm_mem(ctx, node);
+       (node->second.type == ARG_TYPE_MEM ||
+        node->second.type == ARG_TYPE_XMM)) {
+        return emit_mov_xmm_xm(ctx, node);
     }
     if(node->first.type  == ARG_TYPE_MEM &&
        node->second.type == ARG_TYPE_XMM) {
@@ -423,15 +422,16 @@ language_error_t emit_mov_xmm_reg(language_t *ctx, ir_node_t *node) {
 
 //===========================================================================//
 
-language_error_t emit_mov_xmm_mem(language_t *ctx, ir_node_t *node) {
+language_error_t emit_mov_xmm_xm(language_t *ctx, ir_node_t *node) {
     _C_ASSERT(ctx  != NULL, return LANGUAGE_CTX_NULL );
     _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
     _C_ASSERT(node->instruction == IR_INSTR_MOV &&
               node->first.type  == ARG_TYPE_XMM &&
-              node->second.type == ARG_TYPE_MEM,
+              (node->second.type == ARG_TYPE_MEM ||
+               node->second.type == ARG_TYPE_XMM),
               return LANGUAGE_UNEXPECTED_IR_INSTR);
     //-----------------------------------------------------------------------//
-    // mov xmm, [r64 + offs] --> 0xF2 REX? 0x0F 0x10 ModR/M SIB? offs
+    // mov xmm, xmm/[r64 + offs] --> 0xF2 REX? 0x0F 0x10 ModR/M SIB? offs?
     uint8_t result[MaxInstructionSize] = {};
     size_t pos = 0;
     //-----------------------------------------------------------------------//
@@ -449,34 +449,39 @@ language_error_t emit_mov_xmm_mem(language_t *ctx, ir_node_t *node) {
     result[pos++] = 0x10;
     //-----------------------------------------------------------------------//
     // ModR/M
-    ModRM_t modrm = {};
-    if(node->second.mem.base == REGISTER_RIP) {
-        // RIP relative addressing for global variables
-        modrm.mod = 0b00;
-        modrm.rm  = 0b101;
-        size_t id_index = (size_t)node->second.mem.offset;
-        _RETURN_IF_ERROR(add_fixup(ctx, pos + 1, id_index));
+    if(node->second.type == ARG_TYPE_MEM) {
+        ModRM_t modrm = {};
+        if(node->second.mem.base == REGISTER_RIP) {
+            // RIP relative addressing for global variables
+            modrm.mod = 0b00;
+            modrm.rm  = 0b101;
+            size_t id_index = (size_t)node->second.mem.offset;
+            _RETURN_IF_ERROR(add_fixup(ctx, pos + 1, id_index));
+        }
+        else {
+            // General purpose register relative addressing
+            modrm.mod = 0b10;
+            modrm.rm  = (node->second.mem.base - 1) & 7;
+        }
+        modrm.reg = (node->first.xmm - 1) & 7;
+        result[pos++] = modrm.byte;
+        //-------------------------------------------------------------------//
+        // SIB if RSP relative addressing
+        if(node->second.mem.base == REGISTER_RSP) {
+            SIB_t sib = {};
+            sib.scale = 0;
+            sib.index = 0b100; //no index
+            sib.base = (REGISTER_RSP - 1) & 7;
+            result[pos++] = sib.byte;
+        }
+        //-------------------------------------------------------------------//
+        // Offset
+        *(uint32_t *)(result + pos) = (uint32_t)node->second.mem.offset;
+        pos += sizeof(uint32_t);
     }
     else {
-        // General purpose register relative addressing
-        modrm.mod = 0b10;
-        modrm.rm  = (node->second.mem.base - 1) & 7;
+        result[pos++] = create_regs_modrm(&node->first, &node->second).byte;
     }
-    modrm.reg = (node->first.xmm - 1) & 7;
-    result[pos++] = modrm.byte;
-    //-----------------------------------------------------------------------//
-    // SIB if RSP relative addressing
-    if(node->second.mem.base == REGISTER_RSP) {
-        SIB_t sib = {};
-        sib.scale = 0;
-        sib.index = 0b100; //no index
-        sib.base = (REGISTER_RSP - 1) & 7;
-        result[pos++] = sib.byte;
-    }
-    //-----------------------------------------------------------------------//
-    // Offset
-    *(uint32_t *)(result + pos) = (uint32_t)node->second.mem.offset;
-    pos += sizeof(uint32_t);
     //-----------------------------------------------------------------------//
     _RETURN_IF_ERROR(buffer_write(ctx, result, pos));
     return LANGUAGE_SUCCESS;

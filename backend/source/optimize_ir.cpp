@@ -19,6 +19,8 @@ static bool             args_equal        (ir_arg_t   *first,
 
 static bool             is_push           (ir_node_t  *node);
 
+static bool             is_pop            (ir_node_t  *node);
+
 //===========================================================================//
 
 language_error_t optimize_ir(language_t *ctx) {
@@ -98,8 +100,8 @@ language_error_t optimize_neutral(language_t *ctx, size_t *counter) {
 //===========================================================================//
 
 bool args_equal(ir_arg_t *first, ir_arg_t *second) {
-    _C_ASSERT(first  != NULL, return LANGUAGE_NODE_NULL);
-    _C_ASSERT(second != NULL, return LANGUAGE_NODE_NULL);
+    _C_ASSERT(first  != NULL, return false);
+    _C_ASSERT(second != NULL, return false);
     //-----------------------------------------------------------------------//
     if(first->type != second->type) {
         return false;
@@ -119,7 +121,7 @@ bool args_equal(ir_arg_t *first, ir_arg_t *second) {
 //===========================================================================//
 
 bool is_push(ir_node_t *node) {
-    _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
+    _C_ASSERT(node != NULL, return false);
     //-----------------------------------------------------------------------//
     if(node->instruction == IR_INSTR_PUSH ||
        node->instruction == IR_INSTR_PUSH_XMM) {
@@ -132,7 +134,7 @@ bool is_push(ir_node_t *node) {
 //===========================================================================//
 
 bool is_pop(ir_node_t *node) {
-    _C_ASSERT(node != NULL, return LANGUAGE_NODE_NULL);
+    _C_ASSERT(node != NULL, return false);
     //-----------------------------------------------------------------------//
     if(node->instruction == IR_INSTR_POP ||
        node->instruction == IR_INSTR_POP_XMM) {
@@ -145,6 +147,7 @@ bool is_pop(ir_node_t *node) {
 //===========================================================================//
 
 language_error_t set_not_optimized(language_t *ctx) {
+    _C_ASSERT(ctx != NULL, return LANGUAGE_CTX_NULL);
     //-----------------------------------------------------------------------//
     ir_node_t *node = ctx->backend_info.nodes[0].next;
     while(node != &ctx->backend_info.nodes[0]) {
