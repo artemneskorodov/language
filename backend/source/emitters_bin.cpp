@@ -24,23 +24,23 @@ static bool             is_extended_reg    (ir_arg_t    *arg);
 static REX_prefix_t     create_rex         (ir_arg_t    *reg,
                                             ir_arg_t    *rm);
 
-language_error_t emit_mov_mem_xmm   (language_t *ctx,
-                                     ir_node_t  *node);
+static language_error_t emit_mov_mem_xmm   (language_t *ctx,
+                                            ir_node_t  *node);
 
-language_error_t emit_mov_xmm_xm   (language_t *ctx,
-                                     ir_node_t  *node);
+static language_error_t emit_mov_xmm_xm   (language_t *ctx,
+                                            ir_node_t  *node);
 
-language_error_t emit_mov_xmm_reg   (language_t *ctx,
-                                     ir_node_t  *node);
+static language_error_t emit_mov_xmm_reg   (language_t *ctx,
+                                            ir_node_t  *node);
 
-language_error_t emit_mov_reg_xmm   (language_t *ctx,
-                                     ir_node_t  *node);
+static language_error_t emit_mov_reg_xmm   (language_t *ctx,
+                                            ir_node_t  *node);
 
-language_error_t emit_mov_reg_imm   (language_t *ctx,
-                                     ir_node_t  *node);
+static language_error_t emit_mov_reg_imm   (language_t *ctx,
+                                            ir_node_t  *node);
 
-language_error_t emit_mov_rm_reg   (language_t *ctx,
-                                     ir_node_t  *node);
+static language_error_t emit_mov_rm_reg   (language_t *ctx,
+                                            ir_node_t  *node);
 
 //===========================================================================//
 
